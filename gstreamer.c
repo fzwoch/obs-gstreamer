@@ -65,15 +65,15 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 			frame.linesize[2] = width / 2;
 			frame.data[1] = frame.data[0] + width * height;
 			frame.data[2] = frame.data[1] + width * height / 4;
-		break;
+			break;
 		case GST_VIDEO_FORMAT_NV12:
 			frame.format = VIDEO_FORMAT_NV12;
 			frame.linesize[0] = width;
 			frame.linesize[1] = width;
 			frame.data[1] = frame.data[0] + width * height;
-		break;
+			break;
 		case GST_VIDEO_FORMAT_BGRA:
-			frame.format = VIDEO_FORMAT_BGRA;
+			frame.format = VIDEO_FORMAT_BGRX;
 			frame.linesize[0] = width * 4;
 			break;
 		case GST_VIDEO_FORMAT_RGBA:
@@ -167,7 +167,7 @@ static void start(data_t* data)
 
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
-		"videoconvert name=video ! video/x-raw, format={I420,NV12,YUY2,UYVY,YUYV,BGRA,RGBA} ! appsink name=video_appsink "
+		"videoconvert name=video ! video/x-raw, format={BGRA,ARGB} ! appsink name=video_appsink "
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format=S16LE ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 
@@ -246,7 +246,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_t* props = obs_properties_create();
 
 	obs_property_t* prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "");
+	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
 	obs_properties_add_bool(props, "use_timestamps", "Use Pipeline Time Stamps");
 
 	return props;
