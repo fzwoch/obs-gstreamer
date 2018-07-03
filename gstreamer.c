@@ -56,6 +56,8 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++;
 	frame.data[0] = info.data;
 
+	video_format_get_parameters(VIDEO_CS_DEFAULT, VIDEO_RANGE_DEFAULT, frame.color_matrix, frame.color_range_min, frame.color_range_max);
+
 	switch (gst_video_format_from_string(format))
 	{
 		case GST_VIDEO_FORMAT_I420:
@@ -167,7 +169,7 @@ static void start(data_t* data)
 
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
-		"videoconvert name=video ! video/x-raw, format={BGRA,RGBA} ! appsink name=video_appsink "
+		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YUYV,UYVY} ! appsink name=video_appsink "
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format=S16LE ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 
