@@ -33,6 +33,29 @@ typedef struct {
 	gint64 frame_count;
 } data_t;
 
+static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_data)
+{
+	data_t* data = user_data;
+
+	switch (GST_MESSAGE_TYPE(message)) {
+		case GST_MESSAGE_EOS:
+			gst_element_seek_simple(data->pipe, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, 0);
+			break;
+		case GST_MESSAGE_ERROR:
+			{
+				GError* err;
+				gst_message_parse_error(message, &err, NULL);
+				blog(LOG_ERROR, "Unknown video format: %s", err->message);
+				g_error_free(err);
+			}
+			break;
+		default:
+			break;
+	}
+
+	return TRUE;
+}
+
 static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 {
 	data_t* data = user_data;
@@ -237,6 +260,10 @@ static void start(data_t* data)
 	gst_object_unref(appsink);
 
 	data->frame_count = 0;
+
+	GstBus* bus = gst_element_get_bus(data->pipe);
+	gst_bus_add_watch(bus, bus_callback, data);
+	gst_object_unref(bus);
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
