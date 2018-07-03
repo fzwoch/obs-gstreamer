@@ -147,7 +147,7 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 			break;
 		default:
 			audio.speakers = SPEAKERS_UNKNOWN;
-			blog(LOG_ERROR, "Unsupported channel count: %s", channels);
+			blog(LOG_ERROR, "Unsupported channel count: %d", channels);
 			break;
 	}
 
