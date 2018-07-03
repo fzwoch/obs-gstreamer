@@ -7,7 +7,7 @@ Studio][1].
 This plugin has interesting use cases but may be difficult to understand and is
 clunky use if you are _not_ familiar with GStreamer.
 
-No binaries supplied due to too many platforms potentially being supported plus
+No binaries provided due to too many platforms potentially being supported plus
 the plugin needs to be compiled against the major version of the GStreamer
 installation on the target system anyway.
 
