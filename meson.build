@@ -29,10 +29,7 @@ shared_library('obs-gstreamer-source',
     dependency('gstreamer-video-1.0'),
     dependency('gstreamer-app-1.0'),
   ],
-  link_args : [
-    '-static-libgcc',
-    '-static-libstdc++',
-  ],
+  link_args : '-static-libgcc',
   install : true,
   install_dir : 'lib/obs-plugins'
 )
