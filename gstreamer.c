@@ -20,6 +20,7 @@
 
 #include <obs/obs-module.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 #include <gst/app/app.h>
 
 OBS_DECLARE_MODULE()
@@ -44,18 +45,58 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 
 	gst_structure_get_int(structure, "width", &width);
 	gst_structure_get_int(structure, "height", &height);
+	const gchar* format = gst_structure_get_string(structure, "format");
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
-	struct obs_source_frame frame = {
-		.width = width,
-		.height = height,
-		.format = VIDEO_FORMAT_BGRA,
-		.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++,
-		.full_range = true,
-		.linesize[0] = width * 4,
-		.data[0] = info.data,
-	};
+	struct obs_source_frame frame = {};
+
+	frame.width = width;
+	frame.height = height;
+	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++;
+	frame.data[0] = info.data;
+
+	switch (gst_video_format_from_string(format))
+	{
+		case GST_VIDEO_FORMAT_I420:
+			frame.format = VIDEO_FORMAT_I420;
+			frame.linesize[0] = width;
+			frame.linesize[1] = width / 2;
+			frame.linesize[2] = width / 2;
+			frame.data[1] = frame.data[0] + width * height;
+			frame.data[2] = frame.data[1] + width * height / 4;
+		break;
+		case GST_VIDEO_FORMAT_NV12:
+			frame.format = VIDEO_FORMAT_NV12;
+			frame.linesize[0] = width;
+			frame.linesize[1] = width;
+			frame.data[1] = frame.data[0] + width * height;
+		break;
+		case GST_VIDEO_FORMAT_BGRA:
+			frame.format = VIDEO_FORMAT_BGRA;
+			frame.linesize[0] = width * 4;
+			break;
+		case GST_VIDEO_FORMAT_RGBA:
+			frame.format = VIDEO_FORMAT_RGBA;
+			frame.linesize[0] = width * 4;
+			break;
+		case GST_VIDEO_FORMAT_UYVY:
+			frame.format = VIDEO_FORMAT_UYVY;
+			frame.linesize[0] = width * 2;
+			break;
+		case GST_VIDEO_FORMAT_YUY2:
+			frame.format = VIDEO_FORMAT_YUY2;
+			frame.linesize[0] = width * 2;
+			break;
+		case GST_VIDEO_FORMAT_YVYU:
+			frame.format = VIDEO_FORMAT_YVYU;
+			frame.linesize[0] = width * 2;
+			break;
+		default:
+			frame.format = VIDEO_FORMAT_NONE;
+			blog(LOG_ERROR, "Unknown video format: %s", format);
+			break;
+	}
 
 	obs_source_output_video(data->source, &frame);
 
@@ -126,7 +167,7 @@ static void start(data_t* data)
 
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
-		"videoconvert name=video ! video/x-raw, format=BGRA ! appsink name=video_appsink "
+		"videoconvert name=video ! video/x-raw, format={I420,NV12,YUY2,UYVY,YUYV,BGRA,RGBA} ! appsink name=video_appsink "
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format=S16LE ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 

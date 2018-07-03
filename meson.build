@@ -26,6 +26,7 @@ shared_library('obs-gstreamer-source',
   dependencies : [
     meson.get_compiler('c').find_library('obs'),
     dependency('gstreamer-1.0'),
+    dependency('gstreamer-video-1.0'),
     dependency('gstreamer-app-1.0'),
   ],
   link_args : [
