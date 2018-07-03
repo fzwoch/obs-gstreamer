@@ -140,6 +140,15 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 		case 2:
 			audio.speakers = SPEAKERS_STEREO;
 			break;
+		case 3:
+			audio.speakers = SPEAKERS_2POINT1;
+			break;
+		case 4:
+			audio.speakers = SPEAKERS_4POINT0;
+			break;
+		case 5:
+			audio.speakers = SPEAKERS_4POINT1;
+			break;
 		case 6:
 			audio.speakers = SPEAKERS_5POINT1;
 			break;
@@ -195,7 +204,7 @@ static void start(data_t* data)
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
-		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,6,8} ! appsink name=audio_appsink",
+		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8} ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 
 	data->pipe = gst_parse_launch(pipeline, &err);
