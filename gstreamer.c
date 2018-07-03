@@ -169,7 +169,7 @@ static void start(data_t* data)
 
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
-		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YUYV,UYVY} ! appsink name=video_appsink "
+		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format=S16LE ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 
