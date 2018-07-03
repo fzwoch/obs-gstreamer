@@ -21,6 +21,7 @@
 #include <obs/obs-module.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
+#include <gst/audio/audio.h>
 #include <gst/app/app.h>
 
 OBS_DECLARE_MODULE()
@@ -121,13 +122,13 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 
 	gst_structure_get_int(structure, "channels", &channels);
 	gst_structure_get_int(structure, "rate", &rate);
+	const gchar* format = gst_structure_get_string(structure, "format");
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	struct obs_source_audio audio = {};
 
-	audio.frames = info.size / channels / 2;
-	audio.format = AUDIO_FORMAT_16BIT;
+	audio.frames = info.size / channels;
 	audio.samples_per_sec = rate;
 	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : 0;
 	audio.data[0] = info.data;
@@ -151,6 +152,29 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 			break;
 	}
 
+	switch (gst_audio_format_from_string(format))
+	{
+		case GST_AUDIO_FORMAT_U8:
+			audio.format = AUDIO_FORMAT_U8BIT;
+			break;
+		case GST_AUDIO_FORMAT_S16LE:
+			audio.format = AUDIO_FORMAT_16BIT;
+			audio.frames /= 2;
+			break;
+		case GST_AUDIO_FORMAT_S32LE:
+			audio.format = AUDIO_FORMAT_32BIT;
+			audio.frames /= 4;
+			break;
+		case GST_AUDIO_FORMAT_F32LE:
+			audio.format = AUDIO_FORMAT_FLOAT;
+			audio.frames /= 4;
+			break;
+		default:
+			audio.format = AUDIO_FORMAT_UNKNOWN;
+			blog(LOG_ERROR, "Unknown audio format: %s", format);
+			break;
+	}
+
 	obs_source_output_audio(data->source, &audio);
 
 	gst_buffer_unmap(buffer, &info);
@@ -171,7 +195,7 @@ static void start(data_t* data)
 	g_autofree gchar* pipeline = g_strdup_printf(
 		"%s "
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
-		"audioconvert name=audio ! audioresample ! audio/x-raw, format=S16LE, channels={1,2,6,8} ! appsink name=audio_appsink",
+		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,6,8} ! appsink name=audio_appsink",
 		obs_data_get_string(data->settings, "pipeline"));
 
 	data->pipe = gst_parse_launch(pipeline, &err);
