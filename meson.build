@@ -20,7 +20,7 @@
 
 project('obs-gstreamer-source', 'c')
 
-shared_library('obs-gstreamer-source',
+shared_library('gstreamer',
   'gstreamer.c',
   name_prefix : '',
   dependencies : [
