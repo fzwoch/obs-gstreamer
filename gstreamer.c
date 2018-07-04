@@ -39,7 +39,8 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 
 	switch (GST_MESSAGE_TYPE(message)) {
 		case GST_MESSAGE_EOS:
-			gst_element_seek_simple(data->pipe, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, 0);
+			if (obs_data_get_bool(data->settings, "restart_on_eos"))
+				gst_element_seek_simple(data->pipe, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, 0);
 			break;
 		case GST_MESSAGE_ERROR:
 			{
@@ -320,6 +321,7 @@ static void get_defaults(obs_data_t* settings)
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 		"audiotestsrc wave=ticks is-live=true ! audio.");
 	obs_data_set_default_bool(settings, "use_timestamps", false);
+	obs_data_set_default_bool(settings, "restart_on_eos", true);
 }
 
 static obs_properties_t* get_properties(void* data)
@@ -328,7 +330,8 @@ static obs_properties_t* get_properties(void* data)
 
 	obs_property_t* prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
 	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
-	obs_properties_add_bool(props, "use_timestamps", "Use Pipeline Time Stamps");
+	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
+	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
 
 	return props;
 }
