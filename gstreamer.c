@@ -45,7 +45,7 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 			{
 				GError* err;
 				gst_message_parse_error(message, &err, NULL);
-				blog(LOG_ERROR, "Unknown video format: %s", err->message);
+				blog(LOG_ERROR, "%s", err->message);
 				g_error_free(err);
 			}
 			break;
