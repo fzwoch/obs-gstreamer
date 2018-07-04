@@ -29,6 +29,10 @@ An example pipeline:
 
     videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. audiotestsrc wave=ticks is-live=true ! audio.
 
+Another one:
+
+    uridecodebin uri=rtmp://184.72.239.149/vod/mp4:bigbuckbunny_1500.mp4 name=bin ! queue ! video. bin. ! queue ! audio.
+
 If you don't understand what is happening in this line please check the
 GStreamer documentation as mentioned above!
 
