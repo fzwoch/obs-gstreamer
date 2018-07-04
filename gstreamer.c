@@ -247,6 +247,15 @@ static void start(data_t* data)
 
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "video_appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &video_cbs, data, NULL);
+
+	// check if connected and remove if not
+	GstElement* sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
+	GstPad* pad = gst_element_get_static_pad(sink, "sink");
+	if (!gst_pad_is_linked(pad))
+		gst_bin_remove(GST_BIN(data->pipe), appsink);
+	gst_object_unref(pad);
+	gst_object_unref(sink);
+
 	gst_object_unref(appsink);
 
 	GstAppSinkCallbacks audio_cbs = {
@@ -257,6 +266,15 @@ static void start(data_t* data)
 
 	appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio_appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &audio_cbs, data, NULL);
+
+	// check if connected and remove if not
+	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
+	pad = gst_element_get_static_pad(sink, "sink");
+	if (!gst_pad_is_linked(pad))
+		gst_bin_remove(GST_BIN(data->pipe), appsink);
+	gst_object_unref(pad);
+	gst_object_unref(sink);
+
 	gst_object_unref(appsink);
 
 	data->frame_count = 0;
