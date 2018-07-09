@@ -31,6 +31,7 @@ typedef struct {
 	obs_source_t* source;
 	obs_data_t* settings;
 	gint64 frame_count;
+	guint timeout_id;
 } data_t;
 
 static gboolean start_pipe(gpointer user_data)
@@ -38,6 +39,7 @@ static gboolean start_pipe(gpointer user_data)
 	data_t* data = user_data;
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+	data->timeout_id = 0;
 
 	return FALSE;
 }
@@ -58,8 +60,8 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				blog(LOG_ERROR, "%s", err->message);
 				g_error_free(err);
 				gst_element_set_state(data->pipe, GST_STATE_NULL);
-				if (obs_data_get_bool(data->settings, "restart_on_error"))
-					g_timeout_add(5000, start_pipe, data);
+				if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
+					data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
 			}
 			break;
 		default:
@@ -317,6 +319,12 @@ static void* create(obs_data_t* settings, obs_source_t* source)
 
 static void stop(data_t* data)
 {
+	if (data->timeout_id != 0)
+	{
+		g_source_remove(data->timeout_id);
+		data->timeout_id = 0;
+	}
+
 	if (data->pipe == NULL)
 	{
 		return;
