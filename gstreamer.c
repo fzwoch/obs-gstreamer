@@ -33,7 +33,7 @@ typedef struct {
 	gint64 frame_count;
 } data_t;
 
-gboolean start_pipe(gpointer user_data)
+static gboolean start_pipe(gpointer user_data)
 {
 	data_t* data = user_data;
 
