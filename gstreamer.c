@@ -33,6 +33,15 @@ typedef struct {
 	gint64 frame_count;
 } data_t;
 
+gboolean start_pipe(gpointer user_data)
+{
+	data_t* data = user_data;
+
+	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	return FALSE;
+}
+
 static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_data)
 {
 	data_t* data = user_data;
@@ -49,6 +58,8 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				blog(LOG_ERROR, "%s", err->message);
 				g_error_free(err);
 				gst_element_set_state(data->pipe, GST_STATE_NULL);
+				if (obs_data_get_bool(data->settings, "restart_on_error"))
+					g_timeout_add(5000, start_pipe, data);
 			}
 			break;
 		default:
@@ -329,6 +340,7 @@ static void get_defaults(obs_data_t* settings)
 		"audiotestsrc wave=ticks is-live=true ! audio.");
 	obs_data_set_default_bool(settings, "use_timestamps", false);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
+	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 }
 
@@ -340,6 +352,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
 	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
+	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error");
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 
 	return props;
