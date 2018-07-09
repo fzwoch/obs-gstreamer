@@ -38,8 +38,8 @@ static gboolean start_pipe(gpointer user_data)
 {
 	data_t* data = user_data;
 
-	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 	data->timeout_id = 0;
+	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
 	return FALSE;
 }
