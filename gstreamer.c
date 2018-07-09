@@ -48,6 +48,7 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				gst_message_parse_error(message, &err, NULL);
 				blog(LOG_ERROR, "%s", err->message);
 				g_error_free(err);
+				gst_element_set_state(data->pipe, GST_STATE_NULL);
 			}
 			break;
 		default:
