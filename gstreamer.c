@@ -59,10 +59,10 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				gst_message_parse_error(message, &err, NULL);
 				blog(LOG_ERROR, "%s", err->message);
 				g_error_free(err);
-				gst_element_set_state(data->pipe, GST_STATE_NULL);
-				if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
-					data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
 			}
+			gst_element_set_state(data->pipe, GST_STATE_NULL);
+			if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
+				data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
 			break;
 		default:
 			break;
