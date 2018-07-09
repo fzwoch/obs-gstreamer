@@ -249,6 +249,9 @@ static void start(data_t* data)
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "video_appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &video_cbs, data, NULL);
 
+	if(!obs_data_get_bool(data->settings, "sync_appsinks"))
+		g_object_set(appsink, "sync", FALSE, NULL);
+
 	// check if connected and remove if not
 	GstElement* sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
 	GstPad* pad = gst_element_get_static_pad(sink, "sink");
@@ -267,6 +270,9 @@ static void start(data_t* data)
 
 	appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio_appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &audio_cbs, data, NULL);
+
+	if(!obs_data_get_bool(data->settings, "sync_appsinks"))
+		g_object_set(appsink, "sync", FALSE, NULL);
 
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
@@ -322,6 +328,7 @@ static void get_defaults(obs_data_t* settings)
 		"audiotestsrc wave=ticks is-live=true ! audio.");
 	obs_data_set_default_bool(settings, "use_timestamps", false);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
+	obs_data_set_default_bool(settings, "sync_appsinks", true);
 }
 
 static obs_properties_t* get_properties(void* data)
@@ -332,6 +339,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
 	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
+	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 
 	return props;
 }
