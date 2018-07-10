@@ -52,6 +52,8 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 		case GST_MESSAGE_EOS:
 			if (obs_data_get_bool(data->settings, "restart_on_eos"))
 				gst_element_seek_simple(data->pipe, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, 0);
+			else
+				obs_source_output_video(data->source, NULL);
 			break;
 		case GST_MESSAGE_ERROR:
 			{
@@ -61,6 +63,7 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				g_error_free(err);
 			}
 			gst_element_set_state(data->pipe, GST_STATE_NULL);
+			obs_source_output_video(data->source, NULL);
 			if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
 				data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
 			break;
@@ -250,6 +253,8 @@ static void start(data_t* data)
 	{
 		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
 		g_error_free(err);
+
+		obs_source_output_video(data->source, NULL);
 
 		return;
 	}
