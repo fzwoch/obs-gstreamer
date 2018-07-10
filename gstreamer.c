@@ -366,7 +366,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
-	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error");
+	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error (5 seconds retry throttle)");
 
 	return props;
 }
