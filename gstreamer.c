@@ -268,7 +268,7 @@ static void start(data_t* data)
 	GstElement* appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "video_appsink");
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &video_cbs, data, NULL);
 
-	if(!obs_data_get_bool(data->settings, "sync_appsinks"))
+	if (!obs_data_get_bool(data->settings, "sync_appsinks"))
 		g_object_set(appsink, "sync", FALSE, NULL);
 
 	// check if connected and remove if not
