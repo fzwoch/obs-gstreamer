@@ -144,25 +144,21 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	GstCaps* caps = gst_sample_get_caps(sample);
-	GstStructure* structure = gst_caps_get_structure(caps, 0);
 	GstMapInfo info;
-	gint channels;
-	gint rate;
+	GstAudioInfo audio_info;
 
-	gst_structure_get_int(structure, "channels", &channels);
-	gst_structure_get_int(structure, "rate", &rate);
-	const gchar* format = gst_structure_get_string(structure, "format");
-
+	gst_audio_info_from_caps(&audio_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	struct obs_source_audio audio = {};
 
-	audio.frames = info.size / channels;
-	audio.samples_per_sec = rate;
 	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : 0;
+
+	audio.frames = info.size / audio_info.bpf;
+	audio.samples_per_sec = audio_info.rate;
 	audio.data[0] = info.data;
 
-	switch (channels) {
+	switch (audio_info.channels) {
 		case 1:
 			audio.speakers = SPEAKERS_MONO;
 			break;
@@ -186,11 +182,11 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 			break;
 		default:
 			audio.speakers = SPEAKERS_UNKNOWN;
-			blog(LOG_ERROR, "Unsupported channel count: %d", channels);
+			blog(LOG_ERROR, "Unsupported channel count: %d", audio_info.channels);
 			break;
 	}
 
-	switch (gst_audio_format_from_string(format))
+	switch (audio_info.finfo->format)
 	{
 		case GST_AUDIO_FORMAT_U8:
 			audio.format = AUDIO_FORMAT_U8BIT;
@@ -209,7 +205,7 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 			break;
 		default:
 			audio.format = AUDIO_FORMAT_UNKNOWN;
-			blog(LOG_ERROR, "Unknown audio format: %s", format);
+			blog(LOG_ERROR, "Unknown audio format: %s", audio_info.finfo->name);
 			break;
 	}
 
