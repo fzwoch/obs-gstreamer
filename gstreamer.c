@@ -80,65 +80,53 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 	GstSample* sample = gst_app_sink_pull_sample(appsink);
 	GstBuffer* buffer = gst_sample_get_buffer(sample);
 	GstCaps* caps = gst_sample_get_caps(sample);
-	GstStructure* structure = gst_caps_get_structure(caps, 0);
 	GstMapInfo info;
-	gint width;
-	gint height;
+	GstVideoInfo video_info;
 
-	gst_structure_get_int(structure, "width", &width);
-	gst_structure_get_int(structure, "height", &height);
-	const gchar* format = gst_structure_get_string(structure, "format");
-
+	gst_video_info_from_caps(&video_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
 	struct obs_source_frame frame = {};
 
-	frame.width = width;
-	frame.height = height;
 	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++;
-	frame.data[0] = info.data;
+
+	frame.width = video_info.width;
+	frame.height = video_info.height;
+	frame.linesize[0] = video_info.stride[0];
+	frame.linesize[1] = video_info.stride[1];
+	frame.linesize[2] = video_info.stride[2];
+	frame.data[0] = info.data + video_info.offset[0];
+	frame.data[1] = info.data + video_info.offset[1];
+	frame.data[2] = info.data + video_info.offset[2];
 
 	video_format_get_parameters(VIDEO_CS_DEFAULT, VIDEO_RANGE_DEFAULT, frame.color_matrix, frame.color_range_min, frame.color_range_max);
 
-	switch (gst_video_format_from_string(format))
+	switch (video_info.finfo->format)
 	{
 		case GST_VIDEO_FORMAT_I420:
 			frame.format = VIDEO_FORMAT_I420;
-			frame.linesize[0] = width;
-			frame.linesize[1] = width / 2;
-			frame.linesize[2] = width / 2;
-			frame.data[1] = frame.data[0] + width * height;
-			frame.data[2] = frame.data[1] + width * height / 4;
 			break;
 		case GST_VIDEO_FORMAT_NV12:
 			frame.format = VIDEO_FORMAT_NV12;
-			frame.linesize[0] = width;
-			frame.linesize[1] = width;
-			frame.data[1] = frame.data[0] + width * height;
 			break;
 		case GST_VIDEO_FORMAT_BGRA:
 			frame.format = VIDEO_FORMAT_BGRX;
-			frame.linesize[0] = width * 4;
 			break;
 		case GST_VIDEO_FORMAT_RGBA:
 			frame.format = VIDEO_FORMAT_RGBA;
-			frame.linesize[0] = width * 4;
 			break;
 		case GST_VIDEO_FORMAT_UYVY:
 			frame.format = VIDEO_FORMAT_UYVY;
-			frame.linesize[0] = width * 2;
 			break;
 		case GST_VIDEO_FORMAT_YUY2:
 			frame.format = VIDEO_FORMAT_YUY2;
-			frame.linesize[0] = width * 2;
 			break;
 		case GST_VIDEO_FORMAT_YVYU:
 			frame.format = VIDEO_FORMAT_YVYU;
-			frame.linesize[0] = width * 2;
 			break;
 		default:
 			frame.format = VIDEO_FORMAT_NONE;
-			blog(LOG_ERROR, "Unknown video format: %s", format);
+			blog(LOG_ERROR, "Unknown video format: %s", video_info.finfo->name);
 			break;
 	}
 
