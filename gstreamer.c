@@ -331,7 +331,7 @@ static void get_defaults(obs_data_t* settings)
 {
 	obs_data_set_default_string(settings, "pipeline",
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
-		"audiotestsrc wave=ticks is-live=true ! audio.");
+		"audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio.");
 	obs_data_set_default_bool(settings, "use_timestamps", false);
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
