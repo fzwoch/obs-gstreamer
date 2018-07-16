@@ -154,7 +154,7 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 
 	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : 0;
 
-	audio.frames = info.size / audio_info.channels;
+	audio.frames = info.size / audio_info.bpf;
 	audio.samples_per_sec = audio_info.rate;
 	audio.data[0] = info.data;
 
@@ -193,15 +193,12 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 			break;
 		case GST_AUDIO_FORMAT_S16LE:
 			audio.format = AUDIO_FORMAT_16BIT;
-			audio.frames /= 2;
 			break;
 		case GST_AUDIO_FORMAT_S32LE:
 			audio.format = AUDIO_FORMAT_32BIT;
-			audio.frames /= 4;
 			break;
 		case GST_AUDIO_FORMAT_F32LE:
 			audio.format = AUDIO_FORMAT_FLOAT;
-			audio.frames /= 4;
 			break;
 		default:
 			audio.format = AUDIO_FORMAT_UNKNOWN;
