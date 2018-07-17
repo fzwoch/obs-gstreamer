@@ -361,6 +361,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
+	obs_data_set_default_bool(settings, "stop_on_hide", true);
 }
 
 static obs_properties_t* get_properties(void* data)
@@ -373,6 +374,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
 	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error (5 seconds retry throttle)");
+	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
 
 	return props;
 }
@@ -390,12 +392,14 @@ static void update(void* data, obs_data_t* settings)
 
 static void show(void* data)
 {
-	start(data);
+	if(obs_data_get_bool(((data_t*)data)->settings, "stop_on_hide"))
+		start(data);
 }
 
 static void hide(void* data)
 {
-	stop(data);
+	if(obs_data_get_bool(((data_t*)data)->settings, "stop_on_hide"))
+		stop(data);
 }
 
 bool obs_module_load(void)
