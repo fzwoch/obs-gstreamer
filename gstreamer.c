@@ -99,7 +99,32 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 	frame.data[1] = info.data + video_info.offset[1];
 	frame.data[2] = info.data + video_info.offset[2];
 
-	video_format_get_parameters(VIDEO_CS_DEFAULT, VIDEO_RANGE_DEFAULT, frame.color_matrix, frame.color_range_min, frame.color_range_max);
+	enum video_range_type range = VIDEO_RANGE_DEFAULT;
+	switch (video_info.colorimetry.range) {
+		case GST_VIDEO_COLOR_RANGE_0_255:
+			range = VIDEO_RANGE_FULL;
+			frame.full_range = 1;
+			break;
+		case GST_VIDEO_COLOR_RANGE_16_235:
+			range = VIDEO_RANGE_PARTIAL;
+			break;
+		default:
+			break;
+	}
+
+	enum video_colorspace cs = VIDEO_CS_DEFAULT;
+	switch (video_info.colorimetry.matrix) {
+		case GST_VIDEO_COLOR_MATRIX_BT709:
+			cs = VIDEO_CS_709;
+			break;
+		case GST_VIDEO_COLOR_MATRIX_BT601:
+			cs = VIDEO_CS_601;
+			break;
+		default:
+			break;
+	}
+
+	video_format_get_parameters(cs, range, frame.color_matrix, frame.color_range_min, frame.color_range_max);
 
 	switch (video_info.finfo->format)
 	{
