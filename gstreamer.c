@@ -344,6 +344,8 @@ static void stop(data_t* data)
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
+
+	obs_source_output_video(data->source, NULL);
 }
 
 static void destroy(void* data)
