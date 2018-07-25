@@ -383,10 +383,7 @@ static obs_properties_t* get_properties(void* data)
 
 static void update(void* data, obs_data_t* settings)
 {
-	if (((data_t*)data)->pipe == NULL)
-	{
-		return;
-	}
+	
 
 	stop(data);
 	start(data);
