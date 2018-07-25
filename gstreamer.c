@@ -89,7 +89,7 @@ static GstFlowReturn video_new_sample(GstAppSink* appsink, gpointer user_data)
 	struct obs_source_frame frame = {};
 
 	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : data->frame_count++;
-
+	frame.timestamp += obs_data_get_double(data->settings,"timestamp_offset") * 1000000;
 	frame.width = video_info.width;
 	frame.height = video_info.height;
 	frame.linesize[0] = video_info.stride[0];
@@ -178,7 +178,7 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 	struct obs_source_audio audio = {};
 
 	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps") ? GST_BUFFER_PTS(buffer) : 0;
-
+	audio.timestamp += obs_data_get_double(data->settings,"timestamp_offset") * 1000000;
 	audio.frames = info.size / audio_info.bpf;
 	audio.samples_per_sec = audio_info.rate;
 	audio.data[0] = info.data;
@@ -360,6 +360,7 @@ static void get_defaults(obs_data_t* settings)
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 		"audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio.");
 	obs_data_set_default_bool(settings, "use_timestamps", false);
+	obs_data_set_default_double(settings, "timestamp_offset", 0.0);
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
@@ -372,6 +373,7 @@ static obs_properties_t* get_properties(void* data)
 
 	obs_property_t* prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
 	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
+	obs_properties_add_float(props, "timestamp_offset","Timestamp offset", -10000, 10000, 1.0);
 	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
