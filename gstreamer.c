@@ -253,7 +253,7 @@ static void start(data_t* data)
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8} ! appsink name=audio_appsink "
 		"%s",
 		obs_data_get_string(data->settings, "pipeline"));
-
+	blog(LOG_INFO, "[obs-gstreamer]: Starting Pipeline: %s", pipeline);
 	data->pipe = gst_parse_launch(pipeline, &err);
 	if (err != NULL)
 	{
@@ -363,6 +363,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
+	obs_data_set_default_bool(settings, "restart_on_update", false);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
 }
 
@@ -376,6 +377,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
 	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error (5 seconds retry throttle)");
+	obs_properties_add_bool(props, "restart_on_update", "Always restart the pipeline when text has changed (even when source is not visible)");
 	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
 
 	return props;
@@ -383,11 +385,18 @@ static obs_properties_t* get_properties(void* data)
 
 static void update(void* data, obs_data_t* settings)
 {
-	if (((data_t*)data)->pipe != NULL)
+	if (obs_data_get_bool(((data_t*)data)->settings, "restart_on_update"))
+	{
+		stop(data);
+		start(data);
+	}
+	else if (((data_t*)data)->pipe != NULL) {
 		return;
-
-	stop(data);
-	start(data);
+	}
+	else {
+		stop(data);
+		start(data);
+	}
 }
 
 static void show(void* data)
