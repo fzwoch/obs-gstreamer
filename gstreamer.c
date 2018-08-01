@@ -383,10 +383,15 @@ static obs_properties_t* get_properties(void* data)
 
 static void update(void* data, obs_data_t* settings)
 {
-	if (((data_t*)data)->pipe != NULL)
+	stop(data);
+
+	// Don't start the pipeline if source is hidden and 'stop_on_hide' is set.
+	// From GUI this is probably irrelevant but works around some quirks when
+	// controlled from script.
+	if (obs_data_get_bool(settings, "stop_on_hide") &&
+		!obs_source_showing(((data_t*)data)->source))
 		return;
 
-	stop(data);
 	start(data);
 }
 
