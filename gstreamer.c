@@ -397,7 +397,7 @@ static void update(void* data, obs_data_t* settings)
 
 static void show(void* data)
 {
-	if (obs_data_get_bool(((data_t*)data)->settings, "stop_on_hide"))
+	if (((data_t*)data)->pipe == NULL)
 		start(data);
 }
 
