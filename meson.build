@@ -21,7 +21,7 @@
 project('obs-gstreamer-source', 'c')
 
 link_args = []
-if meson.get_compiler('c').has_argument('-static-libgcc')
+if meson.get_compiler('c').has_link_argument('-static-libgcc')
   link_args = '-static-libgcc'
 endif
 
