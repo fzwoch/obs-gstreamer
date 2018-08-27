@@ -248,7 +248,7 @@ static void start(data_t* data)
 {
 	GError* err = NULL;
 
-	g_autofree gchar* pipeline = g_strdup_printf(
+	gchar* pipeline = g_strdup_printf(
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8} ! appsink name=audio_appsink "
 		"%s",
@@ -262,8 +262,12 @@ static void start(data_t* data)
 
 		obs_source_output_video(data->source, NULL);
 
+		g_free(pipeline);
+
 		return;
 	}
+
+	g_free(pipeline);
 
 	GstAppSinkCallbacks video_cbs = {
 		NULL,
