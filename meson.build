@@ -18,7 +18,9 @@
 # along with obs-gstreamer-source. If not, see <http://www.gnu.org/licenses/>.
 #
 
-project('obs-gstreamer-source', 'c')
+project('obs-gstreamer-source', 'c',
+  meson_version : '>=0.46',
+)
 
 link_args = []
 if meson.get_compiler('c').has_link_argument('-static-libgcc')
