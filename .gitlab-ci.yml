@@ -1,0 +1,43 @@
+windows-x86_64:
+  stage: build
+  image: debian
+  before_script:
+    - apt update && apt -y install mingw-w64 python3-pip unzip wget wine
+    - pip3 install meson
+  script:
+    - wget https://github.com/obsproject/obs-studio/releases/download/22.0.2/OBS-Studio-22.0.2-Full-x64.zip
+    - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
+
+    - unzip OBS-Studio-22.0.2-Full-x64.zip
+    - tar xzvf https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
+
+    - ln -s obs-studio-22.0.2/libobs/ obs
+
+    - wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-devel-x86_64-1.14.4.msi
+    - wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-x86_64-1.14.4.msi
+
+    - msiexec -passive -i ../../Downloads/gstreamer-1.0-x86_64-1.14.4.msi
+    - msiexec -passive -i ../../Downloads/gstreamer-1.0-devel-x86_64-1.14.4.msi
+
+    - ln -s ~/.wine/drive_c/ /c
+
+    - export PKG_CONFIG_PATH=/c/gstreamer/1.0/x86_64/lib/pkgconfig/
+
+    - echo "[binaries]" >> cross.txt
+    - echo "c = 'x86_64-w64-mingw32-gcc'" >> cross.txt
+    - echo "cpp = 'x86_64-w64-mingw32-g++'" >> cross.txt
+    - echo "ar = 'x86_64-w64-mingw32-ar'" >> cross.txt
+    - echo "strip = 'x86_64-w64-mingw32-strip'" >> cross.txt
+    - echo "windres = 'x86_64-w64-mingw32-windres'" >> cross.txt
+
+    - echo "[host_machine]" >> cross.txt
+    - echo "system = 'windows'" >> cross.txt
+    - echo "cpu_family = 'x86_64'" >> cross.txt
+    - echo "cpu = 'x86_64'" >> cross.txt
+    - echo "endian = 'little'" >> cross.txt
+
+    - meson --buildtype release --cross-file cross.txt windows
+    - ninja -C windows
+  artifacts:
+    paths:
+      - windows/gstreamer.dll
