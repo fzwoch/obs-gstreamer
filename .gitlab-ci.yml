@@ -5,7 +5,7 @@ linux-x86_64:
     - apt update && apt -y install gcc ninja-build python3-pip libobs-dev libgstreamer-plugins-base1.0-dev
     - pip3 install meson
   script:
-    - meson --buildtype release linux
+    - CFLAGS=-DOLD_OBS_API meson --buildtype release linux
     - ninja -C linux
   artifacts:
     paths:

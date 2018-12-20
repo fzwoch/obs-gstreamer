@@ -193,9 +193,11 @@ static GstFlowReturn audio_new_sample(GstAppSink* appsink, gpointer user_data)
 		case 3:
 			audio.speakers = SPEAKERS_2POINT1;
 			break;
+#if !defined OLD_OBS_API
 		case 4:
 			audio.speakers = SPEAKERS_4POINT0;
 			break;
+#endif
 		case 5:
 			audio.speakers = SPEAKERS_4POINT1;
 			break;
