@@ -9,7 +9,7 @@ windows-x86_64:
     - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
 
     - unzip OBS-Studio-22.0.2-Full-x64.zip
-    - tar xzvf https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
+    - tar xzvf 22.0.2.tar.gz
 
     - ln -s obs-studio-22.0.2/libobs/ obs
 
