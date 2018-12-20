@@ -2,9 +2,12 @@ windows-x86_64:
   stage: build
   image: debian
   before_script:
-    - apt update && apt -y install mingw-w64 ninja-build python3-pip unzip wget wine
+    - apt update && apt -y install mingw-w64 ninja-build python3-pip unzip wget wine xvfb
     - pip3 install meson
   script:
+    - Xvfb :0 -screen 0 1024x768x16 &
+    - export DISPLAY=:0.0
+
     - wget https://github.com/obsproject/obs-studio/releases/download/22.0.2/OBS-Studio-22.0.2-Full-x64.zip
     - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
 
