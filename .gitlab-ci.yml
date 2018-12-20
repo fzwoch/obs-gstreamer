@@ -28,6 +28,7 @@ windows-x86_64:
     - echo "cpp = 'x86_64-w64-mingw32-g++'" >> cross.txt
     - echo "ar = 'x86_64-w64-mingw32-ar'" >> cross.txt
     - echo "strip = 'x86_64-w64-mingw32-strip'" >> cross.txt
+    - echo "pkgconfig = 'x86_64-w64-mingw32-pkg-config'" >> cross.txt
     - echo "windres = 'x86_64-w64-mingw32-windres'" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
