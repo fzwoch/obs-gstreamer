@@ -2,16 +2,16 @@ GStreamer OBS Studio plugin
 ===
 
 An OBS Studio source plugin to feed GStreamer launch pipelines into [OBS
-Studio][1].
+Studio].
 
 This plugin has interesting use cases but may be difficult to understand and is
 clunky use if you are _not_ familiar with GStreamer.
 
-No binaries provided due to too many platforms potentially being supported plus
-the plugin needs to be compiled against the major version of the GStreamer
-installation on the target system anyway.
+Experimental prebuilt 64-bit Windows DLL is available. You still require the
+[GStreamer run-time] to be installed.
 
-[1]: https://obsproject.com
+[OBS Studio]: https://obsproject.com
+[GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
 
 Usage
 ---
