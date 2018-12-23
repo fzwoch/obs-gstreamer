@@ -27,11 +27,11 @@ if meson.get_compiler('c').has_link_argument('-static-libgcc')
   link_args = '-static-libgcc'
 endif
 
-extra_include_dir = []
 extra_library_dir = []
 if host_machine.system() == 'windows'
-  extra_include_dir = include_directories('obs')
   extra_library_dir = meson.current_source_dir() + '/bin/64bit'
+elif host_machine.system() == 'darwin'
+  extra_library_dir = meson.current_source_dir() + '/Applications/OBS.app/Contents/Resources/bin/'
 endif
 
 shared_library('gstreamer',
@@ -44,7 +44,6 @@ shared_library('gstreamer',
     dependency('gstreamer-audio-1.0'),
     dependency('gstreamer-app-1.0'),
   ],
-  include_directories : extra_include_dir,
   link_args : link_args,
   install : true,
   install_dir : 'lib/obs-plugins'
