@@ -11,6 +11,48 @@ linux-x86_64:
     paths:
       - linux/gstreamer.so
 
+macos-x86_64:
+  stage: build
+  image: fzwoch/docker-macos
+  before_script:
+    - apt update && apt -y install ninja-build python3-pip p7zip-full wget
+    - pip3 install meson
+  script:
+    - export MACOSX_DEPLOYMENT_TARGET=10.8
+    - echo -n "packages.macports.org" > /opt/osxcross/target/macports/MIRROR
+    - osxcross-macports update-cache
+    - osxcross-macports install gstreamer1 gstreamer1-gst-plugins-base
+
+    - wget https://github.com/obsproject/obs-studio/releases/download/22.0.3/obs-mac-22.0.3-installer.pkg
+    - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
+
+    - 7z x obs-mac-22.0.3-installer.pkg
+    - 7z x OBS.pkg
+    - 7z x Payload~
+    - tar xzvf 22.0.2.tar.gz
+
+    - cp Applications/OBS.app/Contents/Resources/bin/libobs.0.dylib Applications/OBS.app/Contents/Resources/bin/libobs.dylib
+    - ln -s obs-studio-22.0.2/libobs/ obs
+
+    - echo "[binaries]" >> cross.txt
+    - echo "c = 'x86_64-apple-darwin15-cc'" >> cross.txt
+    - echo "cpp = 'x86_64-apple-darwin15-c++'" >> cross.txt
+    - echo "ar = 'x86_64-apple-darwin15-ar'" >> cross.txt
+    - echo "strip = 'x86_64-apple-darwin15-strip'" >> cross.txt
+    - echo "pkgconfig = 'x86_64-apple-darwin15-pkg-config'" >> cross.txt
+
+    - echo "[host_machine]" >> cross.txt
+    - echo "system = 'darwin'" >> cross.txt
+    - echo "cpu_family = 'x86_64'" >> cross.txt
+    - echo "cpu = 'x86_64'" >> cross.txt
+    - echo "endian = 'little'" >> cross.txt
+
+    - meson --buildtype release --cross-file cross.txt macos
+    - ninja -C macos
+  artifacts:
+    paths:
+      - macos/gstreamer.dylib
+
 windows-x86_64:
   stage: build
   image: debian
