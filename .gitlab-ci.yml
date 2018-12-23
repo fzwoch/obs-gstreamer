@@ -19,6 +19,7 @@ macos-x86_64:
     - pip3 install meson
   script:
     - export MACOSX_DEPLOYMENT_TARGET=10.8
+    - mkdir /opt/osxcross/target/macports
     - echo -n "packages.macports.org" > /opt/osxcross/target/macports/MIRROR
     - osxcross-macports update-cache
     - osxcross-macports install gstreamer1 gstreamer1-gst-plugins-base
