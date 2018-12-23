@@ -15,7 +15,7 @@ macos-x86_64:
   stage: build
   image: fzwoch/docker-macos
   before_script:
-    - apt update && apt -y install ninja-build python3-pip p7zip-full wget
+    - apt update && apt -y install ninja-build python3-pip p7zip-full wget pkg-config
     - pip3 install meson
   script:
     - export MACOSX_DEPLOYMENT_TARGET=10.8
