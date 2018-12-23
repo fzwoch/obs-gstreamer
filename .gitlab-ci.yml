@@ -28,7 +28,7 @@ macos-x86_64:
     - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
 
     - 7z x obs-mac-22.0.3-installer.pkg
-    - 7z x OBS.pkg
+    - 7z x OBS.pkg/Payload
     - 7z x Payload~
     - tar xzvf 22.0.2.tar.gz
 
