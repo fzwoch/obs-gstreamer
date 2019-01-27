@@ -7,11 +7,21 @@ Studio].
 This plugin has interesting use cases but may be difficult to understand and is
 clunky use if you are _not_ familiar with GStreamer.
 
+Prebuilt
+---
+
 Experimental prebuilt 64-bit Windows DLL is available. You still require the
-[GStreamer run-time] to be installed.
+official [GStreamer run-time] to be installed.
+
+Experimental prebuilt macOS dylib is available. You still require the GStreamer
+run-time installed via [Homebrew].
+
+Experimental prebuilt Linux library is available. You still require the GStreamer
+run-time installed via your Linux ditribution's package manager.
 
 [OBS Studio]: https://obsproject.com
 [GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
+[Homebrew]: https://brew.sh
 
 Usage
 ---
