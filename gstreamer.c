@@ -52,7 +52,7 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 		case GST_MESSAGE_EOS:
 			if (obs_data_get_bool(data->settings, "restart_on_eos"))
 				gst_element_seek_simple(data->pipe, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, 0);
-			else
+			else if (obs_data_get_bool(data->settings, "clear_on_end"))
 				obs_source_output_video(data->source, NULL);
 			break;
 		case GST_MESSAGE_ERROR:
@@ -63,7 +63,8 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 				g_error_free(err);
 			}
 			gst_element_set_state(data->pipe, GST_STATE_NULL);
-			obs_source_output_video(data->source, NULL);
+			if (obs_data_get_bool(data->settings, "clear_on_end"))
+				obs_source_output_video(data->source, NULL);
 			if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
 				data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
 			break;
@@ -374,6 +375,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
+	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
 static obs_properties_t* get_properties(void* data)
@@ -387,6 +389,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
 	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error (5 seconds retry throttle)");
 	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
+	obs_properties_add_bool(props, "clear_on_end", "Clear image data after stop");
 
 	return props;
 }
