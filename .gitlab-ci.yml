@@ -51,7 +51,7 @@ windows:
     - echo "windres = 'x86_64-w64-mingw32-windres'" >> cross.txt
 
     - echo "[properties]" >> cross.txt
-    - echo "c_link_args = ['-static-libgcc']" >> cross.txt
+    - echo "c_link_args = ['-static-libgcc', '-L/bin/64bit']" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
     - echo "system = 'windows'" >> cross.txt
@@ -60,7 +60,6 @@ windows:
     - echo "endian = 'little'" >> cross.txt
 
     - export C_INCLUDE_PATH=/
-    - export LIBRARY_PATH=/bin/64bit
 
     - meson --buildtype release --cross-file cross.txt windows
     - ninja -C windows

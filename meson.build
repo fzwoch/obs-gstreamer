@@ -22,16 +22,11 @@ project('obs-gstreamer-source', 'c',
   meson_version : '>=0.46',
 )
 
-extra_library_dir = []
-if host_machine.system() == 'windows'
-  extra_library_dir = '/bin/64bit'
-endif
-
 shared_library('gstreamer',
   'gstreamer.c',
   name_prefix : '',
   dependencies : [
-    meson.get_compiler('c').find_library('obs', dirs : extra_library_dir),
+    meson.get_compiler('c').find_library('obs'),
     dependency('gstreamer-1.0'),
     dependency('gstreamer-video-1.0'),
     dependency('gstreamer-audio-1.0'),
