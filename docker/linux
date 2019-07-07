@@ -1,0 +1,5 @@
+FROM debian:buster
+
+RUN apt update \
+ && apt install -y gcc ninja-build meson libobs-dev libgstreamer-plugins-base1.0-dev \
+ && rm -rf /var/lib/apt/lists/*
