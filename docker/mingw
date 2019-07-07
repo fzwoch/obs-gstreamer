@@ -1,0 +1,24 @@
+FROM debian:stretch
+
+RUN apt update \
+ && apt install -y mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine \
+ && pip3 install meson \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://github.com/obsproject/obs-studio/releases/download/22.0.2/OBS-Studio-22.0.2-Full-x64.zip \
+ && wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz \
+ && unzip OBS-Studio-22.0.2-Full-x64.zip \
+ && tar xzvf 22.0.2.tar.gz \
+ && ln -s obs-studio-22.0.2/libobs/ obs \
+ && rm OBS-Studio-22.0.2-Full-x64.zip \
+ && rm 22.0.2.tar.gz
+
+RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-devel-x86_64-1.14.4.msi \
+ && wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-x86_64-1.14.4.msi \
+ && msiexec -passive -i gstreamer-1.0-x86_64-1.14.4.msi \
+ && msiexec -passive -i gstreamer-1.0-devel-x86_64-1.14.4.msi \
+ && ln -s ~/.wine/drive_c/ /c \
+ && rm gstreamer-1.0-x86_64-1.14.4.msi \
+ && rm gstreamer-1.0-devel-x86_64-1.14.4.msi
+
+ENV PKG_CONFIG_PATH=/c/gstreamer/1.0/x86_64/lib/pkgconfig

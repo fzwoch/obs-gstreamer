@@ -29,7 +29,7 @@ endif
 
 extra_library_dir = []
 if host_machine.system() == 'windows'
-  extra_library_dir = meson.current_source_dir() + '/bin/64bit'
+  extra_library_dir = '/bin/64bit'
 endif
 
 shared_library('gstreamer',

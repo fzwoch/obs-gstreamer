@@ -36,27 +36,8 @@ macos-x86_64:
 
 windows-x86_64:
   stage: build
-  image: debian:stretch
-  before_script:
-    - apt update && apt -y install mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine
-    - pip3 install meson
+  image: registry.gitlab.com/fzwoch/obs-gstreamer/mingw
   script:
-    - wget https://github.com/obsproject/obs-studio/releases/download/22.0.2/OBS-Studio-22.0.2-Full-x64.zip
-    - wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz
-
-    - unzip OBS-Studio-22.0.2-Full-x64.zip
-    - tar xzvf 22.0.2.tar.gz
-
-    - ln -s obs-studio-22.0.2/libobs/ obs
-
-    - wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-devel-x86_64-1.14.4.msi
-    - wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-x86_64-1.14.4.msi
-
-    - msiexec -passive -i gstreamer-1.0-x86_64-1.14.4.msi
-    - msiexec -passive -i gstreamer-1.0-devel-x86_64-1.14.4.msi
-
-    - ln -s ~/.wine/drive_c/ /c
-
     - export PKG_CONFIG_PATH=/c/gstreamer/1.0/x86_64/lib/pkgconfig/
 
     - echo "[binaries]" >> cross.txt
@@ -72,6 +53,9 @@ windows-x86_64:
     - echo "cpu_family = 'x86_64'" >> cross.txt
     - echo "cpu = 'x86_64'" >> cross.txt
     - echo "endian = 'little'" >> cross.txt
+
+    - export C_INCLUDE_PATH=/
+    - export LIBRARY_PATH=/bin/64bit
 
     - meson --buildtype release --cross-file cross.txt windows
     - ninja -C windows
