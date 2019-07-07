@@ -66,7 +66,7 @@ static gboolean bus_callback(GstBus* bus, GstMessage* message, gpointer user_dat
 			if (obs_data_get_bool(data->settings, "clear_on_end"))
 				obs_source_output_video(data->source, NULL);
 			if (obs_data_get_bool(data->settings, "restart_on_error") && data->timeout_id == 0)
-				data->timeout_id = g_timeout_add_seconds(5, start_pipe, data);
+				data->timeout_id = g_timeout_add(obs_data_get_int(data->settings, "restart_timeout"), start_pipe, data);
 			break;
 		default:
 			break;
@@ -374,6 +374,7 @@ static void get_defaults(obs_data_t* settings)
 	obs_data_set_default_bool(settings, "sync_appsinks", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
+	obs_data_set_default_int(settings, "restart_timeout", 2000);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
@@ -387,7 +388,8 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "use_timestamps", "Use pipeline time stamps");
 	obs_properties_add_bool(props, "sync_appsinks", "Sync appsinks to clock");
 	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
-	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error (5 seconds retry throttle)");
+	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error");
+	obs_properties_add_int(props, "restart_timeout", "Error timeout (ms)", 0, 10000, 100);
 	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
 	obs_properties_add_bool(props, "clear_on_end", "Clear image data after stop");
 
