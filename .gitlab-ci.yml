@@ -1,4 +1,4 @@
-linux-x86_64:
+linux:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/linux
   script:
@@ -10,7 +10,7 @@ linux-x86_64:
     paths:
       - linux/gstreamer.so
 
-macos-x86_64:
+macos:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/macos
   script:
@@ -36,7 +36,7 @@ macos-x86_64:
     paths:
       - macos/gstreamer.dylib
 
-windows-x86_64:
+windows:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/mingw
   script:
