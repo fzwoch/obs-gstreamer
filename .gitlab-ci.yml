@@ -56,7 +56,7 @@ macos-x86_64:
 
 windows-x86_64:
   stage: build
-  image: debian
+  image: debian:buster
   before_script:
     - apt update && apt -y install mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine
     - pip3 install meson
