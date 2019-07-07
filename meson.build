@@ -30,8 +30,6 @@ endif
 extra_library_dir = []
 if host_machine.system() == 'windows'
   extra_library_dir = meson.current_source_dir() + '/bin/64bit'
-elif host_machine.system() == 'darwin'
-  extra_library_dir = meson.current_source_dir() + '/Applications/OBS.app/Contents/Resources/bin/'
 endif
 
 shared_library('gstreamer',
