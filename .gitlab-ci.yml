@@ -2,6 +2,8 @@ linux-x86_64:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/linux
   script:
+    - export LD_FLAGS=-static-libgcc
+
     - meson --buildtype release linux
     - ninja -C linux
   artifacts:
@@ -47,6 +49,9 @@ windows-x86_64:
     - echo "strip = 'x86_64-w64-mingw32-strip'" >> cross.txt
     - echo "pkgconfig = 'x86_64-w64-mingw32-pkg-config'" >> cross.txt
     - echo "windres = 'x86_64-w64-mingw32-windres'" >> cross.txt
+
+    - echo "[properties]" >> cross.txt
+    - echo "c_link_args = ['-static-libgcc']" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
     - echo "system = 'windows'" >> cross.txt

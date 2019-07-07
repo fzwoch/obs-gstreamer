@@ -22,11 +22,6 @@ project('obs-gstreamer-source', 'c',
   meson_version : '>=0.46',
 )
 
-link_args = []
-if meson.get_compiler('c').has_link_argument('-static-libgcc')
-  link_args = '-static-libgcc'
-endif
-
 extra_library_dir = []
 if host_machine.system() == 'windows'
   extra_library_dir = '/bin/64bit'
@@ -42,7 +37,6 @@ shared_library('gstreamer',
     dependency('gstreamer-audio-1.0'),
     dependency('gstreamer-app-1.0'),
   ],
-  link_args : link_args,
   install : true,
   install_dir : 'lib/obs-plugins'
 )
