@@ -1,0 +1,25 @@
+FROM fzwoch/docker-macos
+
+RUN apt update \
+ && apt install -y ninja-build meson p7zip-full wget pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV MACOSX_DEPLOYMENT_TARGET=10.8
+
+RUN mkdir /opt/osxcross/target/macports \
+ && echo -n "packages.macports.org" > /opt/osxcross/target/macports/MIRROR \
+ && osxcross-macports update-cache \
+ && osxcross-macports install gstreamer1 gstreamer1-gst-plugins-base
+
+RUN wget https://github.com/obsproject/obs-studio/releases/download/22.0.3/obs-mac-22.0.3-installer.pkg \
+ && wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz \
+ && 7z x obs-mac-22.0.3-installer.pkg \
+ && 7z x OBS.pkg/Payload \
+ && 7z x Payload~ \
+ && tar xzvf 22.0.2.tar.gz \
+ && cp Applications/OBS.app/Contents/Resources/bin/libobs.0.dylib Applications/OBS.app/Contents/Resources/bin/libobs.dylib \
+ && ln -s obs-studio-22.0.2/libobs/ obs \
+ && rm obs-mac-22.0.3-installer.pkg \
+ && rm OBS.pkg/Payload \
+ && rm Payload~ \
+ && rm 22.0.2.tar.gz
