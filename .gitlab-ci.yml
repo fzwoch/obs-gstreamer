@@ -1,3 +1,52 @@
+stages:
+  - docker
+  - build
+
+docker:linux:
+  stage: docker
+  image: docker:git
+  services:
+    - name: docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker build -f docker/linux -t registry.gitlab.com/fzwoch/obs-gstreamer/linux .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/linux
+  only:
+    refs:
+      - master
+    changes:
+      - docker/linux
+
+docker:macos:
+  stage: docker
+  image: docker:git
+  services:
+    - name: docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker build -f docker/macos -t registry.gitlab.com/fzwoch/obs-gstreamer/macos .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/macos
+  only:
+    refs:
+      - master
+    changes:
+      - docker/macos
+
+docker:mingw:
+  stage: docker
+  image: docker:git
+  services:
+    - name: docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker build -f docker/mingw -t registry.gitlab.com/fzwoch/obs-gstreamer/mingw .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/mingw
+  only:
+    refs:
+      - master
+    changes:
+      - docker/mingw
+
 linux:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/linux
