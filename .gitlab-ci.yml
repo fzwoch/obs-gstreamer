@@ -106,7 +106,7 @@ obs-gstreamer:
   stage: deploy
   image: debian:buster
   variables:
-    - GIT_STRATEGY: none
+    GIT_STRATEGY: none
   script:
     - echo Done
   artifacts:
