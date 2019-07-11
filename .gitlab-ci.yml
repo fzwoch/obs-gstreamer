@@ -61,9 +61,11 @@ macos:
 
     - meson --buildtype release --cross-file cross.txt macos
     - ninja -C macos
+
+    - mv macos/gstreamer.dylib macos/gstreamer.so
   artifacts:
     paths:
-      - macos/gstreamer.dylib
+      - macos/gstreamer.so
 
 windows:
   stage: build
