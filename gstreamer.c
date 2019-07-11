@@ -391,7 +391,7 @@ static obs_properties_t* get_properties(void* data)
 	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error");
 	obs_properties_add_int(props, "restart_timeout", "Error timeout (ms)", 0, 10000, 100);
 	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
-	obs_properties_add_bool(props, "clear_on_end", "Clear image data after stop");
+	obs_properties_add_bool(props, "clear_on_end", "Clear image data after end-of-stream or error");
 
 	return props;
 }
