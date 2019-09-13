@@ -1,6 +1,0 @@
-{
-global:
-    obs_module_load;
-local:
-    *;
-};
