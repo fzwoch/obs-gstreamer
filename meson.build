@@ -42,5 +42,5 @@ shared_library('obs-gstreamer',
   install : true,
   install_dir : 'lib/obs-plugins',
   link_args : c_link_args,
-  vs_module_defs : join_paths(meson.current_source_dir(), 'exports.msvc'),
+  vs_module_defs : join_paths(meson.current_source_dir(), 'exports.def'),
 )
