@@ -68,7 +68,6 @@ bool obs_module_load(void)
 		.codec = "h264",
 
 		.get_name = gstreamer_encoder_get_name,
-
 		.create = gstreamer_encoder_create,
 		.destroy = gstreamer_encoder_destroy,
 

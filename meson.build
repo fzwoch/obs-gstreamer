@@ -27,7 +27,7 @@ elif host_machine.system() == 'darwin'
   c_link_args = ['-exported_symbols_list', meson.current_source_dir() + '/exports.macos']
 endif
 
-shared_library('gstreamer',
+shared_library('obs-gstreamer',
   'gstreamer.c',
   'gstreamer-source.c',
   'gstreamer-encoder.c',
