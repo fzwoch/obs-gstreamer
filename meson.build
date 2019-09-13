@@ -20,13 +20,6 @@
 
 project('obs-gstreamer', 'c')
 
-c_link_args = []
-if meson.get_compiler('c').get_id() == 'gcc' and host_machine.system() != 'darwin'
-  c_link_args = '-Wl,--version-script=' + meson.current_source_dir() + '/exports.gcc'
-elif host_machine.system() == 'darwin'
-  c_link_args = ['-exported_symbols_list', meson.current_source_dir() + '/exports.macos']
-endif
-
 shared_library('obs-gstreamer',
   'gstreamer.c',
   'gstreamer-source.c',
@@ -41,6 +34,4 @@ shared_library('obs-gstreamer',
   ],
   install : true,
   install_dir : 'lib/obs-plugins',
-  link_args : c_link_args,
-  vs_module_defs : join_paths(meson.current_source_dir(), 'exports.def'),
 )
