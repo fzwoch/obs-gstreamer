@@ -24,30 +24,35 @@
 OBS_DECLARE_MODULE()
 
 // gstreamer-source.c
-extern const char* gstreamer_source_get_name(void* type_data);
-extern void* gstreamer_source_create(obs_data_t* settings, obs_source_t* source);
-extern void gstreamer_source_destroy(void* data);
-extern void gstreamer_source_get_defaults(obs_data_t* settings);
-extern obs_properties_t* gstreamer_source_get_properties(void* data);
-extern void gstreamer_source_update(void* data, obs_data_t* settings);
-extern void gstreamer_source_show(void* data);
-extern void gstreamer_source_hide(void* data);
+extern const char *gstreamer_source_get_name(void *type_data);
+extern void *gstreamer_source_create(obs_data_t *settings,
+				     obs_source_t *source);
+extern void gstreamer_source_destroy(void *data);
+extern void gstreamer_source_get_defaults(obs_data_t *settings);
+extern obs_properties_t *gstreamer_source_get_properties(void *data);
+extern void gstreamer_source_update(void *data, obs_data_t *settings);
+extern void gstreamer_source_show(void *data);
+extern void gstreamer_source_hide(void *data);
 
 // gstreamer-encoder.c
-extern const char* gstreamer_encoder_get_name(void* type_data);
-extern void* gstreamer_encoder_create(obs_data_t* settings, obs_encoder_t* encoder);
-extern void gstreamer_encoder_destroy(void* data);
-extern bool gstreamer_encoder_encode(void* data, struct encoder_frame* frame, struct encoder_packet* packet, bool* received_packet);
-extern void gstreamer_encoder_get_defaults(obs_data_t* settings);
-extern obs_properties_t* gstreamer_encoder_get_properties(void* data);
-extern bool gstreamer_encoder_update(void* data, obs_data_t* settings);
+extern const char *gstreamer_encoder_get_name(void *type_data);
+extern void *gstreamer_encoder_create(obs_data_t *settings,
+				      obs_encoder_t *encoder);
+extern void gstreamer_encoder_destroy(void *data);
+extern bool gstreamer_encoder_encode(void *data, struct encoder_frame *frame,
+				     struct encoder_packet *packet,
+				     bool *received_packet);
+extern void gstreamer_encoder_get_defaults(obs_data_t *settings);
+extern obs_properties_t *gstreamer_encoder_get_properties(void *data);
+extern bool gstreamer_encoder_update(void *data, obs_data_t *settings);
 
 bool obs_module_load(void)
 {
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
 		.type = OBS_SOURCE_TYPE_INPUT,
-		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE,
+		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO |
+				OBS_SOURCE_DO_NOT_DUPLICATE,
 
 		.get_name = gstreamer_source_get_name,
 		.create = gstreamer_source_create,
