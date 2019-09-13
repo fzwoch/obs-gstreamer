@@ -35,8 +35,12 @@ extern void gstreamer_source_hide(void* data);
 
 // gstreamer-encoder.c
 extern const char* gstreamer_encoder_get_name(void* type_data);
-void* gstreamer_encoder_create(obs_data_t* settings, obs_encoder_t *encoder);
-void gstreamer_encoder_destroy(void* data);
+extern void* gstreamer_encoder_create(obs_data_t* settings, obs_encoder_t* encoder);
+extern void gstreamer_encoder_destroy(void* data);
+extern bool gstreamer_encoder_encode(void* data, struct encoder_frame* frame, struct encoder_packet* packet, bool* received_packet);
+extern void gstreamer_encoder_get_defaults(obs_data_t* settings);
+extern obs_properties_t* gstreamer_encoder_get_properties(void* data);
+extern bool gstreamer_encoder_update(void* data, obs_data_t* settings);
 
 bool obs_module_load(void)
 {
@@ -67,11 +71,12 @@ bool obs_module_load(void)
 
 		.create = gstreamer_encoder_create,
 		.destroy = gstreamer_encoder_destroy,
-/*
-		.get_defaults = get_defaults,
-		.get_properties = get_properties,
-		.update = update,
-*/
+
+		.encode = gstreamer_encoder_encode,
+
+		.get_defaults = gstreamer_encoder_get_defaults,
+		.get_properties = gstreamer_encoder_get_properties,
+		.update = gstreamer_encoder_update,
 	};
 
 	obs_register_encoder(&encoder_info);

@@ -43,3 +43,22 @@ void* gstreamer_encoder_create(obs_data_t* settings, obs_encoder_t* encoder)
 void gstreamer_encoder_destroy(void* data)
 {
 }
+
+bool gstreamer_encoder_encode(void* data, struct encoder_frame* frame, struct encoder_packet* packet, bool* received_packet)
+{
+    return true;
+}
+
+void gstreamer_encoder_get_defaults(obs_data_t* settings)
+{
+}
+
+obs_properties_t* gstreamer_encoder_get_properties(void* data)
+{
+    return NULL;
+}
+
+bool gstreamer_encoder_update(void* data, obs_data_t* settings)
+{
+    return true;
+}
