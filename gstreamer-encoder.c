@@ -28,6 +28,7 @@ typedef struct {
 	GstElement* appsink;
 	obs_encoder_t* encoder;
 	obs_data_t* settings;
+	struct obs_video_info ovi;
 } data_t;
 
 const char* gstreamer_encoder_get_name(void* type_data)
@@ -42,7 +43,31 @@ void* gstreamer_encoder_create(obs_data_t* settings, obs_encoder_t* encoder)
 	data->encoder = encoder;
 	data->settings = settings;
 
-	data->pipe = gst_parse_launch("appsrc name=appsrc ! video/x-raw, format=I420 ! x264enc ! h264parse ! video/x-h264 stream-format=byte-stream alignment=au ! appsink name=appsink", NULL);
+	obs_get_video_info(&data->ovi);
+
+	const char* format_mapping[18] = {
+		"", // invalid
+		"I420", "NV12", // 4:2:0
+		"YVYU", "YUY2", "UYVY", // packed 4:2:2
+		"RGBA", "BGRA", "BGRX", "Y800", // packed
+		"I444", // planar 4:4:4
+		"BGR3", // uh..
+		"I422", // planar 4:2:2
+	};
+
+	gchar* pipe_string = g_strdup_printf("appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! x264enc ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		format_mapping[data->ovi.output_format], data->ovi.output_width, data->ovi.output_height, data->ovi.fps_num, data->ovi.fps_den);
+
+	GError* err = NULL;
+
+	data->pipe = gst_parse_launch(pipe_string, &err);
+	g_free(pipe_string);
+
+	if (err != NULL)
+	{
+		blog(LOG_ERROR, err->message);
+		return NULL;
+	}
 
 	data->appsrc = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
 	data->appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
@@ -73,13 +98,13 @@ bool gstreamer_encoder_encode(void* p, struct encoder_frame* frame, struct encod
 {
 	data_t* data = (data_t*)p;
 
-	GstBuffer* buffer = gst_buffer_new_allocate(NULL, 0, NULL);
+	GstBuffer* buffer = gst_buffer_new_allocate(NULL, data->ovi.output_width * data->ovi.output_height * 3 / 2, NULL);
 
-	gst_buffer_fill(buffer, 0, NULL, 0);
+//	gst_buffer_fill(buffer, 0, NULL, 0);
 
 	GST_BUFFER_PTS(buffer) = frame->pts;
 
-	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), NULL);
+	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
 	GstSample* sample = gst_app_sink_try_pull_sample(GST_APP_SINK(data->appsink), 0);
 	if (sample == NULL)
