@@ -66,7 +66,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	g_free(pipe_string);
 
 	if (err != NULL) {
-		blog(LOG_ERROR, err->message);
+		blog(LOG_ERROR, "%s", err->message);
 		return NULL;
 	}
 
