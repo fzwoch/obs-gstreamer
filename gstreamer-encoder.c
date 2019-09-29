@@ -138,7 +138,7 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	packet->type = OBS_ENCODER_VIDEO;
 
 	packet->keyframe =
-		!GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_DELTA_UNIT);
+		!GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DELTA_UNIT);
 
 	gst_buffer_unmap(buffer, &info);
 	gst_sample_unref(sample);
@@ -170,6 +170,35 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 			       1);
 
 	return props;
+}
+
+bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
+				      size_t *size)
+{
+	blog(LOG_INFO, "!! get_extra_data");
+
+	return false;
+}
+
+bool gstreamer_encoder_get_sei_data(void *data, uint8_t **sei_data,
+				    size_t *size)
+{
+	blog(LOG_INFO, "!! get_sei_data");
+
+	return false;
+}
+
+void gstreamer_encoder_video_info(void *p, struct video_scale_info *info)
+{
+	data_t *data = (data_t *)p;
+
+	blog(LOG_INFO, "!! video_info");
+
+	info->format = VIDEO_FORMAT_I420;
+	info->width = data->ovi.output_width;
+	info->height = data->ovi.output_height;
+	info->range = VIDEO_RANGE_DEFAULT;
+	info->colorspace = VIDEO_CS_DEFAULT;
 }
 
 bool gstreamer_encoder_update(void *data, obs_data_t *settings)

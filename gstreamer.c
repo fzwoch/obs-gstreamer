@@ -45,6 +45,12 @@ extern bool gstreamer_encoder_encode(void *data, struct encoder_frame *frame,
 extern void gstreamer_encoder_get_defaults(obs_data_t *settings);
 extern obs_properties_t *gstreamer_encoder_get_properties(void *data);
 extern bool gstreamer_encoder_update(void *data, obs_data_t *settings);
+extern bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
+					     size_t *size);
+extern bool gstreamer_encoder_get_sei_data(void *data, uint8_t **sei_data,
+					   size_t *size);
+extern void gstreamer_encoder_video_info(void *data,
+					 struct video_scale_info *info);
 
 bool obs_module_load(void)
 {
@@ -81,6 +87,10 @@ bool obs_module_load(void)
 		.get_defaults = gstreamer_encoder_get_defaults,
 		.get_properties = gstreamer_encoder_get_properties,
 		.update = gstreamer_encoder_update,
+
+		.get_extra_data = gstreamer_encoder_get_extra_data,
+		.get_sei_data = gstreamer_encoder_get_sei_data,
+		.get_video_info = gstreamer_encoder_video_info,
 	};
 
 	obs_register_encoder(&encoder_info);
