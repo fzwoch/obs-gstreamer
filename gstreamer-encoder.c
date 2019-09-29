@@ -146,11 +146,28 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	return true;
 }
 
-void gstreamer_encoder_get_defaults(obs_data_t *settings) {}
+void gstreamer_encoder_get_defaults(obs_data_t *settings)
+{
+	obs_data_set_default_int(settings, "bitrate", 2000);
+	obs_data_set_default_string(settings, "rate_control", "CBR");
+	obs_data_set_default_int(settings, "keyint_sec", 2);
+}
 
 obs_properties_t *gstreamer_encoder_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
+
+	obs_properties_add_int(props, "bitrate", "Bitrate", 100, 20000, 1);
+
+	obs_property_t *prop = obs_properties_add_list(props, "rate_control",
+						       "Rate control",
+						       OBS_COMBO_TYPE_LIST,
+						       OBS_COMBO_FORMAT_STRING);
+
+	obs_property_list_add_string(prop, "CBR", "CBR");
+
+	obs_properties_add_int(props, "keyint_sec", "Keyframe interval", 1, 200,
+			       1);
 
 	return props;
 }
