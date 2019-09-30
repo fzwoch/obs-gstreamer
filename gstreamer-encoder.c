@@ -171,7 +171,7 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
 				      50);
-	obs_property_int_set_suffix(prop, " Kbps");
+//	obs_property_int_set_suffix(prop, " Kbps");
 
 	prop = obs_properties_add_list(props, "rate_control", "Rate control",
 				       OBS_COMBO_TYPE_LIST,
@@ -182,7 +182,7 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
 				      0, 20, 1);
-	obs_property_int_set_suffix(prop, " seconds");
+//	obs_property_int_set_suffix(prop, " seconds");
 
 	return props;
 }
