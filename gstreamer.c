@@ -88,9 +88,9 @@ bool obs_module_load(void)
 		.get_properties = gstreamer_encoder_get_properties,
 		.update = gstreamer_encoder_update,
 
-		.get_extra_data = gstreamer_encoder_get_extra_data,
-		.get_sei_data = gstreamer_encoder_get_sei_data,
-		.get_video_info = gstreamer_encoder_video_info,
+		//	.get_extra_data = gstreamer_encoder_get_extra_data,
+		//	.get_sei_data = gstreamer_encoder_get_sei_data,
+		//	.get_video_info = gstreamer_encoder_video_info,
 	};
 
 	obs_register_encoder(&encoder_info);

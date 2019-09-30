@@ -149,7 +149,7 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 void gstreamer_encoder_get_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_string(settings, "encoder_type", "x264");
-	obs_data_set_default_int(settings, "bitrate", 2000);
+	obs_data_set_default_int(settings, "bitrate", 2500);
 	obs_data_set_default_string(settings, "rate_control", "CBR");
 	obs_data_set_default_int(settings, "keyint_sec", 2);
 }
@@ -169,7 +169,9 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 				     "omx");
 	obs_property_list_add_string(prop, "Apple (VideoToolBox)", "vtenc");
 
-	obs_properties_add_int(props, "bitrate", "Bitrate", 100, 200000, 100);
+	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
+				      50);
+	obs_property_int_set_suffix(prop, " Kbps");
 
 	prop = obs_properties_add_list(props, "rate_control", "Rate control",
 				       OBS_COMBO_TYPE_LIST,
@@ -178,8 +180,9 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	obs_property_list_add_string(prop, "Constant bitrate", "CBR");
 	obs_property_list_add_string(prop, "Variable bitrate", "VBR");
 
-	obs_properties_add_int(props, "keyint_sec", "Keyframe interval", 1, 200,
-			       1);
+	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
+				      0, 20, 1);
+	obs_property_int_set_suffix(prop, " seconds");
 
 	return props;
 }
