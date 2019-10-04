@@ -26,6 +26,8 @@ typedef struct {
 	GstElement *pipe;
 	GstElement *appsrc;
 	GstElement *appsink;
+	guint8 *codec_data;
+	size_t codec_data_size;
 	obs_encoder_t *encoder;
 	obs_data_t *settings;
 	struct obs_video_info ovi;
@@ -92,6 +94,7 @@ void gstreamer_encoder_destroy(void *p)
 	data->appsrc = NULL;
 	data->pipe = NULL;
 
+	g_free(data->codec_data);
 	g_free(data);
 }
 
@@ -125,6 +128,24 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	GstMapInfo info;
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
+
+	if (!data->codec_data) {
+		size_t size;
+
+		// this is pretty lazy..
+		for (size = 0; size < info.size; size++) {
+			if (info.data[size + 0] == 0 &&
+			    info.data[size + 1] == 0 &&
+				info.data[size + 2] == 0 &&
+			    info.data[size + 3] == 1 &&
+			    (info.data[size + 4] & 0x1f) == 5) {
+				break;
+			}
+		}
+
+		data->codec_data = g_memdup(info.data, size);
+		data->codec_data_size = size;
+	}
 
 	packet->data = g_memdup(info.data, info.size);
 	packet->size = info.size;
@@ -171,7 +192,7 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
 				      50);
-//	obs_property_int_set_suffix(prop, " Kbps");
+	//	obs_property_int_set_suffix(prop, " Kbps");
 
 	prop = obs_properties_add_list(props, "rate_control", "Rate control",
 				       OBS_COMBO_TYPE_LIST,
@@ -182,38 +203,26 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
 				      0, 20, 1);
-//	obs_property_int_set_suffix(prop, " seconds");
+	//	obs_property_int_set_suffix(prop, " seconds");
 
 	return props;
 }
 
-bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
+bool gstreamer_encoder_get_extra_data(void *p, uint8_t **extra_data,
 				      size_t *size)
-{
-	blog(LOG_INFO, "!! get_extra_data");
-
-	return false;
-}
-
-bool gstreamer_encoder_get_sei_data(void *data, uint8_t **sei_data,
-				    size_t *size)
-{
-	blog(LOG_INFO, "!! get_sei_data");
-
-	return false;
-}
-
-void gstreamer_encoder_video_info(void *p, struct video_scale_info *info)
 {
 	data_t *data = (data_t *)p;
 
-	blog(LOG_INFO, "!! video_info");
+	blog(LOG_INFO, "!! get_extra_data");
 
-	info->format = VIDEO_FORMAT_I420;
-	info->width = data->ovi.output_width;
-	info->height = data->ovi.output_height;
-	info->range = VIDEO_RANGE_DEFAULT;
-	info->colorspace = VIDEO_CS_DEFAULT;
+	if (!data->codec_data) {
+		return false;
+	}
+
+	*extra_data = data->codec_data;
+	*size = data->codec_data_size;
+
+	return true;
 }
 
 bool gstreamer_encoder_update(void *data, obs_data_t *settings)
