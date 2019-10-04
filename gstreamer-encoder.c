@@ -26,6 +26,7 @@ typedef struct {
 	GstElement *pipe;
 	GstElement *appsrc;
 	GstElement *appsink;
+	gsize buffer_size;
 	guint8 *codec_data;
 	size_t codec_data_size;
 	obs_encoder_t *encoder;
@@ -42,25 +43,53 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 {
 	data_t *data = g_new0(data_t, 1);
 
+	const char *format = "";
+
 	data->encoder = encoder;
 	data->settings = settings;
 
 	obs_get_video_info(&data->ovi);
 
-	const char *format_mapping[18] = {
-		"",                             // invalid
-		"I420", "NV12",                 // 4:2:0
-		"YVYU", "YUY2", "UYVY",         // packed 4:2:2
-		"RGBA", "BGRA", "BGRX", "Y800", // packed
-		"I444",                         // planar 4:4:4
-		"BGR3",                         // uh..
-		"I422",                         // planar 4:2:2
-	};
+	switch (data->ovi.output_format) {
+	case VIDEO_FORMAT_I420:
+		format = "I420";
+	case VIDEO_FORMAT_NV12:
+		format = "NV12";
+		data->buffer_size = data->ovi.output_width *
+				    data->ovi.output_height * 3 / 2;
+		break;
+	case VIDEO_FORMAT_YVYU:
+		format = "YVYU";
+	case VIDEO_FORMAT_YUY2:
+		format = "YUY2";
+	case VIDEO_FORMAT_UYVY:
+		format = "UYVY";
+	case VIDEO_FORMAT_I422:
+		format = "I422";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 2;
+		break;
+	case VIDEO_FORMAT_RGBA:
+		format = "RGBA";
+	case VIDEO_FORMAT_BGRA:
+		format = "BGRA";
+	case VIDEO_FORMAT_BGRX:
+		format = "BGRX";
+	case VIDEO_FORMAT_I444:
+		format = "I444";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 3;
+		break;
+	default:
+		blog(LOG_ERROR, "unhandled output format: %d\n",
+		     data->ovi.output_format);
+		break;
+	}
 
 	gchar *pipe_string = g_strdup_printf(
 		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! x264enc ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
-		format_mapping[data->ovi.output_format], data->ovi.output_width,
-		data->ovi.output_height, data->ovi.fps_num, data->ovi.fps_den);
+		format, data->ovi.output_width, data->ovi.output_height,
+		data->ovi.fps_num, data->ovi.fps_den);
 
 	GError *err = NULL;
 
@@ -103,30 +132,8 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 			      bool *received_packet)
 {
 	data_t *data = (data_t *)p;
-	gsize size = 0;
 
-	switch (data->ovi.output_format) {
-	case VIDEO_FORMAT_I420:
-	case VIDEO_FORMAT_NV12:
-		size = data->ovi.output_width * data->ovi.output_height * 3 / 2;
-		break;
-	case VIDEO_FORMAT_RGBA:
-	case VIDEO_FORMAT_BGRA:
-	case VIDEO_FORMAT_BGRX:
-		size = data->ovi.output_width * data->ovi.output_height * 3;
-		break;
-	case VIDEO_FORMAT_YVYU:
-	case VIDEO_FORMAT_YUY2:
-	case VIDEO_FORMAT_UYVY:
-		size = data->ovi.output_width * data->ovi.output_height * 2;
-		break;
-	default:
-		blog(LOG_ERROR, "unhandled output format: %d\n",
-		     data->ovi.output_format);
-		break;
-	}
-
-	GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
+	GstBuffer *buffer = gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
 
 	gint32 offset = 0;
 	for (int j = 0; frame->linesize[j] != 0; j++) {
