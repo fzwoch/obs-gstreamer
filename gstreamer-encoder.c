@@ -108,10 +108,14 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 		NULL, data->ovi.output_width * data->ovi.output_height * 3 / 2,
 		NULL);
 
-	for (int i = 0; i < data->ovi.output_height; i++) {
-		gst_buffer_fill(buffer, i * data->ovi.output_width,
-				frame->data[0] + i * frame->linesize[0],
-				i * data->ovi.output_width);
+	gint32 offset = 0;
+	for (int j = 0; frame->linesize[j] != 0; j++) {
+		for (int i = 0; i < data->ovi.output_height; i++) {
+			gst_buffer_fill(buffer, offset,
+					frame->data[j] + i * frame->linesize[j],
+					data->ovi.output_width);
+			offset += data->ovi.output_width;
+		}
 	}
 
 	GST_BUFFER_PTS(buffer) = frame->pts;
