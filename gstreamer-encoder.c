@@ -136,7 +136,7 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 		for (size = 0; size < info.size; size++) {
 			if (info.data[size + 0] == 0 &&
 			    info.data[size + 1] == 0 &&
-				info.data[size + 2] == 0 &&
+			    info.data[size + 2] == 0 &&
 			    info.data[size + 3] == 1 &&
 			    (info.data[size + 4] & 0x1f) == 5) {
 				break;
@@ -212,8 +212,6 @@ bool gstreamer_encoder_get_extra_data(void *p, uint8_t **extra_data,
 				      size_t *size)
 {
 	data_t *data = (data_t *)p;
-
-	blog(LOG_INFO, "!! get_extra_data");
 
 	if (!data->codec_data) {
 		return false;
