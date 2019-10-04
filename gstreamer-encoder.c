@@ -103,10 +103,30 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 			      bool *received_packet)
 {
 	data_t *data = (data_t *)p;
+	gsize size = 0;
 
-	GstBuffer *buffer = gst_buffer_new_allocate(
-		NULL, data->ovi.output_width * data->ovi.output_height * 3 / 2,
-		NULL);
+	switch (data->ovi.output_format) {
+	case VIDEO_FORMAT_I420:
+	case VIDEO_FORMAT_NV12:
+		size = data->ovi.output_width * data->ovi.output_height * 3 / 2;
+		break;
+	case VIDEO_FORMAT_RGBA:
+	case VIDEO_FORMAT_BGRA:
+	case VIDEO_FORMAT_BGRX:
+		size = data->ovi.output_width * data->ovi.output_height * 3;
+		break;
+	case VIDEO_FORMAT_YVYU:
+	case VIDEO_FORMAT_YUY2:
+	case VIDEO_FORMAT_UYVY:
+		size = data->ovi.output_width * data->ovi.output_height * 2;
+		break;
+	default:
+		blog(LOG_ERROR, "unhandled output format: %d\n",
+		     data->ovi.output_format);
+		break;
+	}
+
+	GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
 
 	gint32 offset = 0;
 	for (int j = 0; frame->linesize[j] != 0; j++) {
