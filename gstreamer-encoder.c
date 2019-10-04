@@ -53,6 +53,9 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	switch (data->ovi.output_format) {
 	case VIDEO_FORMAT_I420:
 		format = "I420";
+		data->buffer_size = data->ovi.output_width *
+				    data->ovi.output_height * 3 / 2;
+		break;
 	case VIDEO_FORMAT_NV12:
 		format = "NV12";
 		data->buffer_size = data->ovi.output_width *
@@ -60,10 +63,19 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 		break;
 	case VIDEO_FORMAT_YVYU:
 		format = "YVYU";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 2;
+		break;
 	case VIDEO_FORMAT_YUY2:
 		format = "YUY2";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 2;
+		break;
 	case VIDEO_FORMAT_UYVY:
 		format = "UYVY";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 2;
+		break;
 	case VIDEO_FORMAT_I422:
 		format = "I422";
 		data->buffer_size =
@@ -71,10 +83,16 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 		break;
 	case VIDEO_FORMAT_RGBA:
 		format = "RGBA";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 3;
 	case VIDEO_FORMAT_BGRA:
 		format = "BGRA";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 3;
 	case VIDEO_FORMAT_BGRX:
 		format = "BGRX";
+		data->buffer_size =
+			data->ovi.output_width * data->ovi.output_height * 3;
 	case VIDEO_FORMAT_I444:
 		format = "I444";
 		data->buffer_size =
@@ -133,7 +151,8 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 {
 	data_t *data = (data_t *)p;
 
-	GstBuffer *buffer = gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
+	GstBuffer *buffer =
+		gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
 
 	gint32 offset = 0;
 	for (int j = 0; frame->linesize[j] != 0; j++) {
