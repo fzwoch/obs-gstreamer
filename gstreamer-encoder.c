@@ -237,17 +237,15 @@ void gstreamer_encoder_get_defaults(obs_data_t *settings)
 
 static bool check_feature(char *name)
 {
-	bool ret = false;
-
 	GstRegistry *registry = gst_registry_get();
 	GstPluginFeature *feature = gst_registry_lookup_feature(registry, name);
 
 	if (feature) {
-		ret = true;
 		g_object_unref(feature);
+		return true;
 	}
 
-	return ret;
+	return false;
 }
 
 obs_properties_t *gstreamer_encoder_get_properties(void *data)
