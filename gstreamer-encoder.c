@@ -107,14 +107,34 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 		break;
 	}
 
+	const gchar *encoder_type =
+		obs_data_get_string(data->settings, "encoder_type");
+
+	gchar *encoder_string = "";
+	if (g_strcmp0(encoder_type, "x264") == 0) {
+		encoder_string = g_strdup_printf(
+			"x264enc bframes=0 tune=zerolatency bitrate=%lld key-int-max=%lld",
+			obs_data_get_int(data->settings, "bitrate"),
+			obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "nvh264enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"nvh264enc bitrate=%lld gop-size=%lld",
+			obs_data_get_int(data->settings, "bitrate"),
+			obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	}
+
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! x264enc bframes=0 ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
-		data->ovi.fps_num, data->ovi.fps_den);
+		data->ovi.fps_num, data->ovi.fps_den, encoder_string);
 
 	GError *err = NULL;
 
 	data->pipe = gst_parse_launch(pipe_string, &err);
+
+	g_free(encoder_string);
 	g_free(pipe_string);
 
 	if (err != NULL) {
@@ -213,8 +233,8 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	packet->pts = (int64_t)GST_BUFFER_PTS(buffer) - (int64_t)data->offset;
 	packet->dts = (int64_t)GST_BUFFER_DTS(buffer) - (int64_t)data->offset;
 
-	packet->timebase_num = 1;
-	packet->timebase_den = GST_SECOND;
+	packet->timebase_num = GST_SECOND;
+	packet->timebase_den = 1;
 
 	packet->type = OBS_ENCODER_VIDEO;
 
@@ -259,8 +279,9 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	if (check_feature("x264enc"))
 		obs_property_list_add_string(prop, "x264", "x264");
-	if (check_feature("nvenc"))
-		obs_property_list_add_string(prop, "NVIDIA (NVENC)", "nvenc");
+	if (check_feature("nvh264enc"))
+		obs_property_list_add_string(prop, "NVIDIA (NVENC)",
+					     "nvh264enc");
 	if (check_feature("omxh264enc"))
 		obs_property_list_add_string(
 			prop, "OpenMAX (Raspberry Pi / Tegra)", "omx");
