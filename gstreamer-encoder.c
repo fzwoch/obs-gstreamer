@@ -126,7 +126,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	}
 
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
 		data->ovi.fps_num, data->ovi.fps_den, encoder_string);
 
