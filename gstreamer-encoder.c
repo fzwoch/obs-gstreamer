@@ -27,6 +27,7 @@ typedef struct {
 	GstElement *appsrc;
 	GstElement *appsink;
 	gsize buffer_size;
+	GstClockTime offset;
 	guint8 *codec_data;
 	size_t codec_data_size;
 	obs_encoder_t *encoder;
@@ -107,7 +108,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	}
 
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! x264enc ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d ! videoconvert ! x264enc bframes=0 ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
 		data->ovi.fps_num, data->ovi.fps_den);
 
@@ -123,6 +124,8 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 
 	data->appsrc = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
 	data->appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
+
+	data->offset = GST_CLOCK_TIME_NONE;
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
@@ -172,15 +175,16 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 
 	GstSample *sample =
 		gst_app_sink_try_pull_sample(GST_APP_SINK(data->appsink), 0);
-	if (sample == NULL) {
-		*received_packet = false;
-
+	if (sample == NULL)
 		return true;
-	}
 
 	*received_packet = true;
 
 	buffer = gst_sample_get_buffer(sample);
+
+	if (data->offset == GST_CLOCK_TIME_NONE)
+		data->offset = GST_BUFFER_PTS(buffer);
+
 	GstMapInfo info;
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
@@ -206,11 +210,11 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	packet->data = g_memdup(info.data, info.size);
 	packet->size = info.size;
 
-	packet->pts = GST_BUFFER_PTS(buffer);
-	packet->dts = GST_BUFFER_DTS(buffer);
+	packet->pts = (int64_t)GST_BUFFER_PTS(buffer) - (int64_t)data->offset;
+	packet->dts = (int64_t)GST_BUFFER_DTS(buffer) - (int64_t)data->offset;
 
-	packet->timebase_num = GST_SECOND;
-	packet->timebase_den = 1;
+	packet->timebase_num = 1;
+	packet->timebase_den = GST_SECOND;
 
 	packet->type = OBS_ENCODER_VIDEO;
 
@@ -231,6 +235,21 @@ void gstreamer_encoder_get_defaults(obs_data_t *settings)
 	obs_data_set_default_int(settings, "keyint_sec", 2);
 }
 
+static bool check_feature(char *name)
+{
+	bool ret = false;
+
+	GstRegistry *registry = gst_registry_get();
+	GstPluginFeature *feature = gst_registry_lookup_feature(registry, name);
+
+	if (feature) {
+		ret = true;
+		g_object_unref(feature);
+	}
+
+	return ret;
+}
+
 obs_properties_t *gstreamer_encoder_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
@@ -240,11 +259,16 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 						       OBS_COMBO_TYPE_LIST,
 						       OBS_COMBO_FORMAT_STRING);
 
-	obs_property_list_add_string(prop, "x264", "x264");
-	obs_property_list_add_string(prop, "NVIDIA (NVENC)", "nvenc");
-	obs_property_list_add_string(prop, "OpenMAX (Raspberry Pi / Tegra)",
-				     "omx");
-	obs_property_list_add_string(prop, "Apple (VideoToolBox)", "vtenc");
+	if (check_feature("x264enc"))
+		obs_property_list_add_string(prop, "x264", "x264");
+	if (check_feature("nvenc"))
+		obs_property_list_add_string(prop, "NVIDIA (NVENC)", "nvenc");
+	if (check_feature("omxh264enc"))
+		obs_property_list_add_string(
+			prop, "OpenMAX (Raspberry Pi / Tegra)", "omx");
+	if (check_feature("vtenc_h264"))
+		obs_property_list_add_string(prop, "Apple (VideoToolBox)",
+					     "vtenc_h264");
 
 	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
 				      50);
