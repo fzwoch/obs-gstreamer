@@ -104,7 +104,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	default:
 		blog(LOG_ERROR, "unhandled output format: %d\n",
 		     data->ovi.output_format);
-		break;
+		return NULL;
 	}
 
 	const gchar *encoder_type =
@@ -129,6 +129,8 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 			obs_data_get_int(data->settings, "bitrate"),
 			obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
+	} else {
+		return NULL;
 	}
 
 	gchar *pipe_string = g_strdup_printf(
@@ -269,7 +271,7 @@ static bool check_feature(char *name)
 	GstPluginFeature *feature = gst_registry_lookup_feature(registry, name);
 
 	if (feature) {
-		g_object_unref(feature);
+		gst_object_unref(feature);
 		return true;
 	}
 
