@@ -123,6 +123,12 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 			obs_data_get_int(data->settings, "bitrate"),
 			obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "vaapih264enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"vaapih264enc bitrate=%lld gop-size=%lld",
+			obs_data_get_int(data->settings, "bitrate"),
+			obs_data_get_int(data->settings, "keyframe-period") *
+				data->ovi.fps_num / data->ovi.fps_den);
 	}
 
 	gchar *pipe_string = g_strdup_printf(
@@ -189,7 +195,9 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 		}
 	}
 
-	GST_BUFFER_PTS(buffer) = frame->pts * (GST_SECOND / (data->ovi.fps_num / data->ovi.fps_den));
+	GST_BUFFER_PTS(buffer) =
+		frame->pts *
+		(GST_SECOND / (data->ovi.fps_num / data->ovi.fps_den));
 
 	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
@@ -282,6 +290,8 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	if (check_feature("nvh264enc"))
 		obs_property_list_add_string(prop, "NVIDIA (NVENC)",
 					     "nvh264enc");
+	if (check_feature("vaapih264enc"))
+		obs_property_list_add_string(prop, "VA-API", "vaapih264enc");
 	if (check_feature("omxh264enc"))
 		obs_property_list_add_string(
 			prop, "OpenMAX (Raspberry Pi / Tegra)", "omx");
