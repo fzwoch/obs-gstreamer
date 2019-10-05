@@ -189,7 +189,7 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 		}
 	}
 
-	GST_BUFFER_PTS(buffer) = frame->pts;
+	GST_BUFFER_PTS(buffer) = frame->pts * (GST_SECOND / (data->ovi.fps_num / data->ovi.fps_den));
 
 	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
