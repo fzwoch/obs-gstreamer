@@ -125,9 +125,9 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "vaapih264enc") == 0) {
 		encoder_string = g_strdup_printf(
-			"vaapih264enc bitrate=%lld gop-size=%lld",
+			"vaapih264enc bitrate=%lld keyframe-period=%lld",
 			obs_data_get_int(data->settings, "bitrate"),
-			obs_data_get_int(data->settings, "keyframe-period") *
+			obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	}
 
