@@ -112,7 +112,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	gchar *encoder_string = "";
 	if (g_strcmp0(encoder_type, "x264") == 0) {
 		encoder_string = g_strdup_printf(
-			"x264enc bframes=0 tune=zerolatency bitrate=%lld key-int-max=%lld",
+			"x264enc tune=zerolatency bitrate=%lld key-int-max=%lld",
 			obs_data_get_int(data->settings, "bitrate"),
 			obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
@@ -125,6 +125,18 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	} else if (g_strcmp0(encoder_type, "vaapih264enc") == 0) {
 		encoder_string = g_strdup_printf(
 			"vaapih264enc bitrate=%lld keyframe-period=%lld",
+			obs_data_get_int(data->settings, "bitrate"),
+			obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"omxh264enc target-bitrate=%lld periodicty-idr=%lld",
+			obs_data_get_int(data->settings, "bitrate") * 1000,
+			obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "vtenc_h264") == 0) {
+		encoder_string = g_strdup_printf(
+			"vtenc_h264 bitrate=%lld max-keyframe-interval=%lld",
 			obs_data_get_int(data->settings, "bitrate"),
 			obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
