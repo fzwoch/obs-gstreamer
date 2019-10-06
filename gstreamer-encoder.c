@@ -27,7 +27,6 @@ typedef struct {
 	GstElement *appsrc;
 	GstElement *appsink;
 	gsize buffer_size;
-	GstClockTime offset;
 	guint8 *codec_data;
 	size_t codec_data_size;
 	obs_encoder_t *encoder;
@@ -153,8 +152,6 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	data->appsrc = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
 	data->appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 
-	data->offset = GST_CLOCK_TIME_NONE;
-
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
 	return data;
@@ -212,9 +209,6 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 
 	buffer = gst_sample_get_buffer(sample);
 
-	if (data->offset == GST_CLOCK_TIME_NONE)
-		data->offset = GST_BUFFER_PTS(buffer);
-
 	GstMapInfo info;
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
@@ -240,11 +234,12 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	packet->data = g_memdup(info.data, info.size);
 	packet->size = info.size;
 
-	packet->pts = (int64_t)GST_BUFFER_PTS(buffer) - (int64_t)data->offset;
-	packet->dts = (int64_t)GST_BUFFER_DTS(buffer) - (int64_t)data->offset;
+	packet->pts = GST_BUFFER_PTS(buffer);
+	packet->dts = GST_BUFFER_DTS(buffer);
 
-	packet->timebase_num = GST_SECOND;
-	packet->timebase_den = 1;
+	// this is a bit wonky?
+	packet->pts /= (GST_SECOND / (packet->timebase_den / packet->timebase_num));
+	packet->dts /= (GST_SECOND / (packet->timebase_den / packet->timebase_num));
 
 	packet->type = OBS_ENCODER_VIDEO;
 
