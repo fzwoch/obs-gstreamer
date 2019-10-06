@@ -136,9 +136,9 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "vtenc_h264") == 0) {
 		encoder_string = g_strdup_printf(
-			"vtenc_h264 bitrate=%lld max-keyframe-interval=%lld",
-			obs_data_get_int(data->settings, "bitrate"),
-			obs_data_get_int(data->settings, "keyint_sec") *
+			"vtenc_h264 bitrate=%d max-keyframe-interval=%d",
+			(int)obs_data_get_int(data->settings, "bitrate"),
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else {
 		return NULL;
