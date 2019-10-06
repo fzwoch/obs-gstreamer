@@ -238,8 +238,8 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	packet->dts = GST_BUFFER_DTS(buffer);
 
 	// this is a bit wonky?
-	packet->pts /= (GST_SECOND / (packet->timebase_den / packet->timebase_num));
-	packet->dts /= (GST_SECOND / (packet->timebase_den / packet->timebase_num));
+	packet->pts /= GST_SECOND / (packet->timebase_den / packet->timebase_num);
+	packet->dts /= GST_SECOND / (packet->timebase_den / packet->timebase_num);
 
 	packet->type = OBS_ENCODER_VIDEO;
 
