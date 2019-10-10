@@ -141,6 +141,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else {
+		blog(LOG_ERROR, "invalid encoder selected");
 		return NULL;
 	}
 
@@ -306,7 +307,7 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 		obs_property_list_add_string(prop, "VA-API", "vaapih264enc");
 	if (check_feature("omxh264enc"))
 		obs_property_list_add_string(
-			prop, "OpenMAX (Raspberry Pi / Tegra)", "omx");
+			prop, "OpenMAX (Raspberry Pi / Tegra)", "omxh264enc");
 	if (check_feature("vtenc_h264"))
 		obs_property_list_add_string(prop, "Apple (VideoToolBox)",
 					     "vtenc_h264");
