@@ -145,9 +145,10 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	}
 
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
-		data->ovi.fps_num, data->ovi.fps_den, encoder_string);
+		data->ovi.fps_num, data->ovi.fps_den, encoder_string,
+		obs_data_get_string(data->settings, "extra_options"));
 
 	GError *err = NULL;
 
@@ -324,6 +325,13 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
 				      0, 20, 1);
 	//	obs_property_int_set_suffix(prop, " seconds");
+
+	prop = obs_properties_add_text(props, "extra_options",
+				       "Extra Encoder Options",
+				       OBS_TEXT_MULTILINE);
+	obs_property_set_long_description(
+		prop,
+		"Extra encoder options. Use the form of key=value separated by spaces.");
 
 	return props;
 }
