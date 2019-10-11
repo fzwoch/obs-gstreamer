@@ -152,7 +152,7 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	}
 
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s name=video_encoder  %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
 		data->ovi.fps_num, data->ovi.fps_den, encoder_string,
 		obs_data_get_string(data->settings, "extra_options"));
@@ -233,7 +233,7 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
 
-	if (!data->codec_data) {
+	if (data->codec_data == NULL) {
 		size_t size;
 
 		// this is pretty lazy..
@@ -351,9 +351,8 @@ bool gstreamer_encoder_get_extra_data(void *p, uint8_t **extra_data,
 {
 	data_t *data = (data_t *)p;
 
-	if (!data->codec_data) {
+	if (data->codec_data == NULL)
 		return false;
-	}
 
 	*extra_data = data->codec_data;
 	*size = data->codec_data_size;
@@ -361,7 +360,37 @@ bool gstreamer_encoder_get_extra_data(void *p, uint8_t **extra_data,
 	return true;
 }
 
-bool gstreamer_encoder_update(void *data, obs_data_t *settings)
+bool gstreamer_encoder_update(void *p, obs_data_t *settings)
 {
+	data_t *data = (data_t *)p;
+
+	if (data->pipe == NULL)
+		return true;
+
+	GstElement *encoder =
+		gst_bin_get_by_name(GST_BIN(data->pipe), "video_encoder");
+
+	if (encoder == NULL)
+		return false;
+
+	const gchar *encoder_type =
+		obs_data_get_string(data->settings, "encoder_type");
+
+	if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
+		g_object_set(encoder, "target-bitrate",
+			     obs_data_get_int(data->settings, "bitrate") * 1000,
+			     NULL);
+	} else if (g_strcmp0(encoder_type, "omxh264enc_old") == 0) {
+		g_object_set(encoder, "bitrate",
+			     obs_data_get_int(data->settings, "bitrate") * 1000,
+			     NULL);
+	} else {
+		g_object_set(encoder, "bitrate",
+			     obs_data_get_int(data->settings, "bitrate"), NULL);
+	}
+
+	g_object_set(encoder, "bitrate", 0, NULL);
+	gst_object_unref(encoder);
+
 	return true;
 }
