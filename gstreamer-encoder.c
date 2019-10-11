@@ -337,7 +337,7 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	//	obs_property_int_set_suffix(prop, " seconds");
 
 	prop = obs_properties_add_text(props, "extra_options",
-				       "Extra Encoder Options",
+				       "Extra encoder options",
 				       OBS_TEXT_MULTILINE);
 	obs_property_set_long_description(
 		prop,
