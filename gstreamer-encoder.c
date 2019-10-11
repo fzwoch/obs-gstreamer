@@ -130,7 +130,13 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
 		encoder_string = g_strdup_printf(
-			"omxh264enc target-bitrate=%d periodicty-idr=%d",
+			"omxh264enc target-bitrate=%d periodicity-idr=%d",
+			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "omxh264enc_old") == 0) {
+		encoder_string = g_strdup_printf(
+			"omxh264enc bitrate=%d iframeinterval=%d",
 			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
@@ -306,8 +312,11 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	if (check_feature("vaapih264enc"))
 		obs_property_list_add_string(prop, "VA-API", "vaapih264enc");
 	if (check_feature("omxh264enc"))
-		obs_property_list_add_string(
-			prop, "OpenMAX (Raspberry Pi / Tegra)", "omxh264enc");
+		obs_property_list_add_string(prop, "OpenMAX (Raspberry Pi)",
+					     "omxh264enc");
+	if (check_feature("omxh264enc"))
+		obs_property_list_add_string(prop, "OpenMAX (Tegra)",
+					     "omxh264enc_old");
 	if (check_feature("vtenc_h264"))
 		obs_property_list_add_string(prop, "Apple (VideoToolBox)",
 					     "vtenc_h264");
