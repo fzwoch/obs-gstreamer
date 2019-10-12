@@ -109,35 +109,46 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	const gchar *encoder_type =
 		obs_data_get_string(data->settings, "encoder_type");
 
+	const gboolean is_cbr =
+		g_strcmp0(obs_data_get_string(data->settings, "rate_control"),
+			  "CBR") == 0
+			? true
+			: false;
+
 	gchar *encoder_string = "";
 	if (g_strcmp0(encoder_type, "x264") == 0) {
 		encoder_string = g_strdup_printf(
-			"x264enc tune=zerolatency bitrate=%d key-int-max=%d",
+			"x264enc tune=zerolatency bitrate=%d pass=%s key-int-max=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "pass1",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "nvh264enc") == 0) {
 		encoder_string = g_strdup_printf(
-			"nvh264enc bitrate=%d gop-size=%d",
+			"nvh264enc bitrate=%d rc-mode=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "vaapih264enc") == 0) {
 		encoder_string = g_strdup_printf(
-			"vaapih264enc bitrate=%d keyframe-period=%d",
+			"vaapih264enc bitrate=%d rate-control=%s keyframe-period=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
 		encoder_string = g_strdup_printf(
-			"omxh264enc target-bitrate=%d periodicity-idr=%d",
+			"omxh264enc target-bitrate=%d control-rate=%s periodicity-idr=%d",
 			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
+			is_cbr ? "constant" : "variable",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "omxh264enc_old") == 0) {
 		encoder_string = g_strdup_printf(
-			"omxh264enc bitrate=%d iframeinterval=%d",
+			"omxh264enc bitrate=%d control-rate=%s iframeinterval=%d",
 			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
+			is_cbr ? "constant" : "variable",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "vtenc_h264") == 0) {
