@@ -5,20 +5,20 @@ RUN apt update \
  && pip3 install meson \
  && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/obsproject/obs-studio/releases/download/22.0.2/OBS-Studio-22.0.2-Full-x64.zip \
- && wget https://github.com/obsproject/obs-studio/archive/22.0.2.tar.gz \
- && unzip OBS-Studio-22.0.2-Full-x64.zip \
- && tar xzvf 22.0.2.tar.gz \
- && ln -s obs-studio-22.0.2/libobs/ obs \
- && rm OBS-Studio-22.0.2-Full-x64.zip \
- && rm 22.0.2.tar.gz
+RUN wget https://github.com/obsproject/obs-studio/releases/download/24.0.3/OBS-Studio-24.0.3-Full-x64.zip \
+ && wget https://github.com/obsproject/obs-studio/archive/24.0.3.tar.gz \
+ && unzip OBS-Studio-24.0.3-Full-x64.zip \
+ && tar xzvf 24.0.3.tar.gz \
+ && ln -s obs-studio-24.0.3/libobs/ obs \
+ && rm OBS-Studio-24.0.3-Full-x64.zip \
+ && rm 24.0.3.tar.gz
 
-RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-devel-x86_64-1.14.4.msi \
- && wget https://gstreamer.freedesktop.org/data/pkg/windows/1.14.4/gstreamer-1.0-x86_64-1.14.4.msi \
- && msiexec -passive -i gstreamer-1.0-x86_64-1.14.4.msi \
- && msiexec -passive -i gstreamer-1.0-devel-x86_64-1.14.4.msi \
+RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.16.1/gstreamer-1.0-devel-mingw-x86_64-1.16.1.msi \
+ && wget https://gstreamer.freedesktop.org/data/pkg/windows/1.16.1/gstreamer-1.0-mingw-x86_64-1.16.1.msi \
+ && msiexec -passive -i gstreamer-1.0-mingw-x86_64-1.16.1.msi \
+ && msiexec -passive -i gstreamer-1.0-devel-mingw-x86_64-1.16.1.msi \
  && ln -s ~/.wine/drive_c/ /c \
- && rm gstreamer-1.0-x86_64-1.14.4.msi \
- && rm gstreamer-1.0-devel-x86_64-1.14.4.msi
+ && rm gstreamer-1.0-mingw-x86_64-1.16.1.msi \
+ && rm gstreamer-1.0-devel-mingw-x86_64-1.16.1.msi
 
 ENV PKG_CONFIG_PATH=/c/gstreamer/1.0/x86_64/lib/pkgconfig
