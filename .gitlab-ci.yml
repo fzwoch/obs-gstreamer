@@ -96,6 +96,7 @@ windows:
     - export C_INCLUDE_PATH=/
 
     - meson --buildtype release --cross-file cross.txt windows
+    - ln -s /c/ "windows/c:"
     - ninja -C windows
   artifacts:
     paths:
