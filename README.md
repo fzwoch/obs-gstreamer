@@ -1,11 +1,15 @@
 GStreamer OBS Studio plugin
 ===
 
-An OBS Studio source plugin to feed GStreamer launch pipelines into [OBS
+1. An OBS Studio source plugin to feed GStreamer launch pipelines into [OBS
 Studio].
 
 This plugin has interesting use cases but may be difficult to understand and is
 clunky use if you are _not_ familiar with GStreamer.
+
+2. An OBS Studio encoder plugin to use GStreamer encoder elements into [OBS Studio].
+
+This may be interesting for people trying to run OBS Studio to different platforms like the RaspberryPi or NVIDIA Tegra.
 
 Prebuilt
 ---
@@ -27,7 +31,7 @@ run-time installed via your Linux ditribution's package manager.
 Usage
 ---
 
-This plugin makes use of the GStreamer launch pipeline descriptions. Please
+The source plugin makes use of the GStreamer launch pipeline descriptions. Please
 refer to the GStreamer documentation to understand what this means:
 
 https://gstreamer.freedesktop.org/documentation/tools/gst-launch.html

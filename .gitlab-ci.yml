@@ -58,7 +58,7 @@ linux:
     - ninja -C linux
   artifacts:
     paths:
-      - linux/gstreamer.so
+      - linux/obs-gstreamer.so
     expire_in: 1 day
 
 macos:
@@ -84,10 +84,10 @@ macos:
     - meson --buildtype release --cross-file cross.txt macos
     - ninja -C macos
 
-    - mv macos/gstreamer.dylib macos/gstreamer.so
+    - mv macos/obs-gstreamer.dylib macos/obs-gstreamer.so
   artifacts:
     paths:
-      - macos/gstreamer.so
+      - macos/obs-gstreamer.so
     expire_in: 1 day
 
 windows:
@@ -120,7 +120,7 @@ windows:
     - ninja -C windows
   artifacts:
     paths:
-      - windows/gstreamer.dll
+      - windows/obs-gstreamer.dll
     expire_in: 1 day
 
 obs-gstreamer:
@@ -133,6 +133,6 @@ obs-gstreamer:
   artifacts:
     name: obs-gstreamer
     paths:
-      - linux/gstreamer.so
-      - macos/gstreamer.so
-      - windows/gstreamer.dll
+      - linux/obs-gstreamer.so
+      - macos/obs-gstreamer.so
+      - windows/obs-gstreamer.dll
