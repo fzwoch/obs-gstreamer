@@ -3,30 +3,50 @@ stages:
   - build
   - deploy
 
-.docker_template: &docker
+docker-linux:
   stage: docker
   image: docker:git
   services:
     - name: docker:dind
   script:
-    - export PLATFORM=`echo $CI_JOB_NAME | cut -d'-' -f2`
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
-    - docker build -f docker/$PLATFORM -t registry.gitlab.com/fzwoch/obs-gstreamer/$PLATFORM .
-    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/$PLATFORM
+    - docker build -f docker/linux -t registry.gitlab.com/fzwoch/obs-gstreamer/linux .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/linux
   only:
     refs:
       - master
     changes:
-      - docker/$PLATFORM
-
-docker-linux:
-  <<: *docker
+      - docker/linux
 
 docker-macos:
-  <<: *docker
+  stage: docker
+  image: docker:git
+  services:
+    - name: docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker build -f docker/macos -t registry.gitlab.com/fzwoch/obs-gstreamer/macos .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/macos
+  only:
+    refs:
+      - master
+    changes:
+      - docker/macos
 
 docker-mingw:
-  <<: *docker
+  stage: docker
+  image: docker:git
+  services:
+    - name: docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
+    - docker build -f docker/mingw -t registry.gitlab.com/fzwoch/obs-gstreamer/mingw .
+    - docker push registry.gitlab.com/fzwoch/obs-gstreamer/mingw
+  only:
+    refs:
+      - master
+    changes:
+      - docker/mingw
 
 linux:
   stage: build
