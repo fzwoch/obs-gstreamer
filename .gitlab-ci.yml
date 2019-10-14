@@ -3,13 +3,13 @@ stages:
   - build
   - deploy
 
-.docker:template: &docker
+.docker_template: &docker
   stage: docker
   image: docker:git
   services:
     - name: docker:dind
   script:
-    - export PLATFORM=`echo $CI_JOB_NAME | cut -d':' -f2`
+    - export PLATFORM=`echo $CI_JOB_NAME | cut -d'-' -f2`
     - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN registry.gitlab.com
     - docker build -f docker/$PLATFORM -t registry.gitlab.com/fzwoch/obs-gstreamer/$PLATFORM .
     - docker push registry.gitlab.com/fzwoch/obs-gstreamer/$PLATFORM
@@ -19,13 +19,13 @@ stages:
     changes:
       - docker/$PLATFORM
 
-docker:linux:
+docker-linux:
   <<: *docker
 
-docker:macos:
+docker-macos:
   <<: *docker
 
-docker:mingw:
+docker-mingw:
   <<: *docker
 
 linux:
