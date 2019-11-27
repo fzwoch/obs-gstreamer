@@ -29,6 +29,8 @@ typedef struct {
 	gsize buffer_size;
 	guint8 *codec_data;
 	size_t codec_data_size;
+	GstSample *sample;
+	GstMapInfo info;
 	obs_encoder_t *encoder;
 	obs_data_t *settings;
 	struct obs_video_info ovi;
@@ -202,6 +204,12 @@ void gstreamer_encoder_destroy(void *p)
 	data->appsrc = NULL;
 	data->pipe = NULL;
 
+	if (data->sample != NULL) {
+		GstBuffer *buffer = gst_sample_get_buffer(data->sample);
+		gst_buffer_unmap(buffer, &data->info);
+		gst_sample_unref(data->sample);
+	}
+
 	g_free(data->codec_data);
 	g_free(data);
 }
@@ -211,6 +219,14 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 			      bool *received_packet)
 {
 	data_t *data = (data_t *)p;
+
+	// delayed release of previous sample
+	if (data->sample != NULL) {
+		GstBuffer *buffer = gst_sample_get_buffer(data->sample);
+		gst_buffer_unmap(buffer, &data->info);
+		gst_sample_unref(data->sample);
+		data->sample = NULL;
+	}
 
 	GstBuffer *buffer =
 		gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
@@ -231,39 +247,37 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 
 	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
-	GstSample *sample =
+	data->sample =
 		gst_app_sink_try_pull_sample(GST_APP_SINK(data->appsink), 0);
-	if (sample == NULL)
+	if (data->sample == NULL)
 		return true;
 
 	*received_packet = true;
 
-	buffer = gst_sample_get_buffer(sample);
+	buffer = gst_sample_get_buffer(data->sample);
 
-	GstMapInfo info;
-
-	gst_buffer_map(buffer, &info, GST_MAP_READ);
+	gst_buffer_map(buffer, &data->info, GST_MAP_READ);
 
 	if (data->codec_data == NULL) {
 		size_t size;
 
 		// this is pretty lazy..
-		for (size = 0; size < info.size; size++) {
-			if (info.data[size + 0] == 0 &&
-			    info.data[size + 1] == 0 &&
-			    info.data[size + 2] == 0 &&
-			    info.data[size + 3] == 1 &&
-			    (info.data[size + 4] & 0x1f) == 5) {
+		for (size = 0; size < data->info.size; size++) {
+			if (data->info.data[size + 0] == 0 &&
+			    data->info.data[size + 1] == 0 &&
+			    data->info.data[size + 2] == 0 &&
+			    data->info.data[size + 3] == 1 &&
+			    (data->info.data[size + 4] & 0x1f) == 5) {
 				break;
 			}
 		}
 
-		data->codec_data = g_memdup(info.data, size);
+		data->codec_data = g_memdup(data->info.data, size);
 		data->codec_data_size = size;
 	}
 
-	packet->data = g_memdup(info.data, info.size);
-	packet->size = info.size;
+	packet->data = data->info.data;
+	packet->size = data->info.size;
 
 	packet->pts = GST_BUFFER_PTS(buffer);
 	packet->dts = GST_BUFFER_DTS(buffer);
@@ -278,9 +292,6 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 
 	packet->keyframe =
 		!GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DELTA_UNIT);
-
-	gst_buffer_unmap(buffer, &info);
-	gst_sample_unref(sample);
 
 	return true;
 }
