@@ -228,19 +228,27 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 		data->sample = NULL;
 	}
 
-	GstBuffer *buffer =
-		gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
+	GstBuffer *buffer;
 
-	gint32 offset = 0;
-	for (int j = 0; frame->linesize[j] != 0; j++) {
-		for (int i = 0; i < data->ovi.output_height; i++) {
-			gst_buffer_fill(buffer, offset,
-					frame->data[j] + i * frame->linesize[j],
-					frame->linesize[j]);
-			offset += frame->linesize[j];
+	if (obs_data_get_bool(data->settings, "force_copy") == true) {
+		buffer = gst_buffer_new_allocate(NULL, data->buffer_size, NULL);
+
+		gint32 offset = 0;
+		for (int j = 0; frame->linesize[j] != 0; j++) {
+			for (int i = 0; i < data->ovi.output_height; i++) {
+				gst_buffer_fill(buffer, offset,
+						frame->data[j] +
+							i * frame->linesize[j],
+						frame->linesize[j]);
+				offset += frame->linesize[j];
+			}
 		}
+	} else {
+		buffer = gst_buffer_new_wrapped_full(0, frame->data[0],
+						     data->buffer_size, 0,
+						     data->buffer_size, NULL,
+						     NULL);
 	}
-
 	GST_BUFFER_PTS(buffer) =
 		frame->pts *
 		(GST_SECOND / (data->ovi.fps_num / data->ovi.fps_den));
@@ -302,6 +310,7 @@ void gstreamer_encoder_get_defaults(obs_data_t *settings)
 	obs_data_set_default_int(settings, "bitrate", 2500);
 	obs_data_set_default_string(settings, "rate_control", "CBR");
 	obs_data_set_default_int(settings, "keyint_sec", 2);
+	obs_data_set_default_bool(settings, "force_copy", false);
 }
 
 static bool check_feature(char *name)
@@ -364,6 +373,8 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 	obs_property_set_long_description(
 		prop,
 		"Extra encoder options. Use the form of key=value separated by spaces.");
+
+	obs_properties_add_bool(props, "force_copy", "Force memory copy");
 
 	return props;
 }
