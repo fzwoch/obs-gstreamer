@@ -56,6 +56,10 @@ HLS example:
 
     uridecodebin uri=http://184.72.239.149:1935/vod/mp4:sample.mp4/playlist.m3u8 name=bin ! queue ! video. bin. ! queue ! audio.
 
+Linux webcam example:
+
+    v4l2src ! decodebin ! video.
+
 If you don't understand what is happening in these lines please check the
 GStreamer documentation as mentioned above!
 
