@@ -115,7 +115,7 @@ windows:
 
     - export C_INCLUDE_PATH=/
 
-    - meson --buildtype release --cross-file cross.txt windows
+    - meson --buildtype release --cross-file cross.txt -Dpkg_config_path=/c/gstreamer/1.0/x86_64/lib/pkgconfig/ windows
     - ln -s /c/ "windows/c:"
     - ninja -C windows
   artifacts:
