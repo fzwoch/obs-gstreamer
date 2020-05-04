@@ -1,7 +1,7 @@
 FROM fzwoch/docker-macos
 
 RUN apt update \
- && apt install -y ninja-build meson p7zip-full wget pkg-config \
+ && apt install -y ninja-build meson p7zip-full wget pkg-config dmg2img \
  && rm -rf /var/lib/apt/lists/*
 
 ENV MACOSX_DEPLOYMENT_TARGET=10.10
@@ -11,15 +11,13 @@ RUN mkdir /opt/osxcross/target/macports \
  && osxcross-macports update-cache \
  && osxcross-macports install gstreamer1 gstreamer1-gst-plugins-base
 
-RUN wget https://github.com/obsproject/obs-studio/releases/download/24.0.2/obs-mac-24.0.2-installer.pkg \
- && wget https://github.com/obsproject/obs-studio/archive/24.0.2.tar.gz \
- && 7z x obs-mac-24.0.2-installer.pkg \
- && 7z x OBS.pkg/Payload \
- && 7z x Payload~ \
- && tar xzvf 24.0.2.tar.gz \
- && cp Applications/OBS.app/Contents/Resources/bin/libobs.0.dylib Applications/OBS.app/Contents/Resources/bin/libobs.dylib \
- && ln -s obs-studio-24.0.2/libobs/ obs \
- && rm obs-mac-24.0.2-installer.pkg \
- && rm OBS.pkg/Payload \
- && rm Payload~ \
- && rm 24.0.2.tar.gz
+RUN wget https://github.com/obsproject/obs-studio/releases/download/25.0.8/obs-mac-25.0.8.dmg \
+ && wget https://github.com/obsproject/obs-studio/archive/25.0.8.tar.gz \
+ && dmg2img obs-mac-25.0.8.dmg \
+ && 7z x obs-mac-25.0.8.img || true \
+ && tar xzvf 25.0.8.tar.gz \
+ && cp OBS/OBS.app/Contents/Frameworks/libobs.0.dylib OBS/OBS.app/Contents/Frameworks/libobs.dylib \
+ && ln -s obs-studio-25.0.8/libobs/ obs \
+ && rm obs-mac-25.0.8.dmg \
+ && rm obs-mac-25.0.8.img \
+ && rm 25.0.8.tar.gz
