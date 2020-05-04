@@ -13,9 +13,10 @@ docker-linux:
     - docker build -f docker/linux -t registry.gitlab.com/fzwoch/obs-gstreamer/linux .
     - docker push registry.gitlab.com/fzwoch/obs-gstreamer/linux
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-    - changes:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
       - docker/linux
+      when: manual
 
 docker-macos:
   stage: docker
@@ -27,9 +28,10 @@ docker-macos:
     - docker build -f docker/macos -t registry.gitlab.com/fzwoch/obs-gstreamer/macos .
     - docker push registry.gitlab.com/fzwoch/obs-gstreamer/macos
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-    - changes:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
       - docker/macos
+      when: manual
 
 docker-mingw:
   stage: docker
@@ -41,9 +43,10 @@ docker-mingw:
     - docker build -f docker/mingw -t registry.gitlab.com/fzwoch/obs-gstreamer/mingw .
     - docker push registry.gitlab.com/fzwoch/obs-gstreamer/mingw
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-    - changes:
+    - if: $CI_COMMIT_BRANCH == "master"
+     changes:
       - docker/mingw
+      when: manual
 
 linux:
   stage: build
