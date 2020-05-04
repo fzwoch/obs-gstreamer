@@ -44,7 +44,7 @@ docker-mingw:
     - docker push registry.gitlab.com/fzwoch/obs-gstreamer/mingw
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
-     changes:
+      changes:
       - docker/mingw
       when: manual
 
