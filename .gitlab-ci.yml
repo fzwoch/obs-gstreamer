@@ -16,7 +16,7 @@ docker-linux:
     - if: $CI_COMMIT_BRANCH == "master"
       changes:
       - docker/linux
-      when: manual
+      when: always
 
 docker-macos:
   stage: docker
@@ -31,7 +31,7 @@ docker-macos:
     - if: $CI_COMMIT_BRANCH == "master"
       changes:
       - docker/macos
-      when: manual
+      when: always
 
 docker-mingw:
   stage: docker
@@ -46,7 +46,7 @@ docker-mingw:
     - if: $CI_COMMIT_BRANCH == "master"
       changes:
       - docker/mingw
-      when: manual
+      when: always
 
 linux:
   stage: build
