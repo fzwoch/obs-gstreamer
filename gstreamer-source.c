@@ -29,6 +29,7 @@ typedef struct {
 	obs_source_t *source;
 	obs_data_t *settings;
 	gint64 frame_count;
+	gint64 audio_count;
 	guint timeout_id;
 } data_t;
 
@@ -191,7 +192,7 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps")
 				  ? GST_BUFFER_PTS(buffer)
-				  : 0;
+				  : data->audio_count;
 
 	audio.frames = info.size / audio_info.bpf;
 	audio.samples_per_sec = audio_info.rate;
@@ -323,6 +324,7 @@ static void start(data_t *data)
 	gst_object_unref(appsink);
 
 	data->frame_count = 0;
+	data->audio_count = 0;
 
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);
