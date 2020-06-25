@@ -340,6 +340,9 @@ void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 	data->source = source;
 	data->settings = settings;
 
+	if (obs_data_get_bool(settings, "stop_on_hide") == false)
+		start(data);
+
 	return data;
 }
 
