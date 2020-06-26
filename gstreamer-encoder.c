@@ -1,6 +1,6 @@
 /*
  * obs-gstreamer. OBS Studio plugin.
- * Copyright (C) 2018-2019 Florian Zwoch <fzwoch@gmail.com>
+ * Copyright (C) 2018-2020 Florian Zwoch <fzwoch@gmail.com>
  *
  * This file is part of obs-gstreamer.
  *
