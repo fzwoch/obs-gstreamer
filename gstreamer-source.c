@@ -33,12 +33,17 @@ typedef struct {
 	guint timeout_id;
 } data_t;
 
+static void start(data_t *data);
+static void stop(data_t *data);
+
 static gboolean start_pipe(gpointer user_data)
 {
 	data_t *data = user_data;
 
 	data->timeout_id = 0;
-	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	stop(data);
+	start(data);
 
 	return FALSE;
 }
