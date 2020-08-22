@@ -60,6 +60,10 @@ Linux webcam example:
 
     v4l2src ! decodebin ! video.
 
+Linux webcam example with watchdog (automatically restarts the pipeline if the webcam stream crashes for some reason):
+
+    v4l2src ! watchdog ! decodebin ! video.
+
 If you don't understand what is happening in these lines please check the
 GStreamer documentation as mentioned above!
 
