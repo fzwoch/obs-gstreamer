@@ -394,6 +394,8 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
+	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
+
 	obs_property_t *prop = obs_properties_add_text(
 		props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
 	obs_property_set_long_description(
