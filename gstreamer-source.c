@@ -394,7 +394,6 @@ void gstreamer_source_update(void *data, obs_data_t *settings);
 
 static bool on_apply_clicked(obs_properties_t *props, obs_property_t *property,
 			     void *data)
-
 {
 	gstreamer_source_update(data, ((data_t *)data)->settings);
 
