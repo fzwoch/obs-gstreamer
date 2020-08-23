@@ -390,6 +390,17 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
+void gstreamer_source_update(void *data, obs_data_t *settings);
+
+static bool on_apply_clicked(obs_properties_t *props, obs_property_t *property,
+			     void *data)
+
+{
+	gstreamer_source_update(data, ((data_t *)data)->settings);
+
+	return true;
+}
+
 obs_properties_t *gstreamer_source_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
@@ -417,6 +428,8 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
+	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
+				   data);
 
 	return props;
 }
