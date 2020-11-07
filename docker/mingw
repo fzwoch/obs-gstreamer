@@ -21,4 +21,4 @@ RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/mingw/gstream
  && rm gstreamer-1.0-mingw-x86_64-1.18.1.msi \
  && rm gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi
 
-ENV PKG_CONFIG_PATH=/c/gstreamer/1.0/x86_64/lib/pkgconfig
+ENV PKG_CONFIG_PATH=/c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig
