@@ -106,6 +106,7 @@ windows:
 
     - echo "[properties]" >> cross.txt
     - echo "c_link_args = ['-static-libgcc', '-L/bin/64bit']" >> cross.txt
+    - echo "pkg_config_libdir = '/c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig'" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
     - echo "system = 'windows'" >> cross.txt
