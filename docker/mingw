@@ -20,4 +20,4 @@ RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/mingw/gstream
  && ln -s ~/.wine/drive_c/ /c \
  && rm gstreamer-1.0-mingw-x86_64-1.18.1.msi \
  && rm gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
- && sed -i.bak 's/c:\/projects\/repos\/cerbero.git\/1.18\/build\/dist/\/c\/gstreamer\/1.0/' /c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig/gstreamer-1.0.pc
+ && sed -i.bak 's/c:\/projects\/repos\/cerbero.git\/1.18\/build\/dist/\/c\/gstreamer\/1.0/i' /c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig/*.pc
