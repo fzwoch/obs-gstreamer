@@ -1,4 +1,4 @@
-FROM debian:stretch
+FROM debian:bullseye
 
 RUN apt update \
  && apt install -y mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine \
@@ -19,6 +19,5 @@ RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/mingw/gstream
  && msiexec -passive -i gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
  && ln -s ~/.wine/drive_c/ /c \
  && rm gstreamer-1.0-mingw-x86_64-1.18.1.msi \
- && rm gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi
-
-ENV PKG_CONFIG_PATH=/c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig
+ && rm gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
+ && sed -i.bak 's/c:\/projects\/repos\/cerbero.git\/1.18\/build\/dist/\/c\/gstreamer\/1.0/' /c/gstreamer/1.0/mingw_x86_64/lib/pkgconfig/gstreamer-1.0.pc
