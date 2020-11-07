@@ -13,8 +13,8 @@ RUN wget https://github.com/obsproject/obs-studio/releases/download/26.0.2/OBS-S
  && rm OBS-Studio-26.0.2-Full-x64.zip \
  && rm 26.0.2.tar.gz
 
-RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
- && wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/gstreamer-1.0-mingw-x86_64-1.18.1.msi \
+RUN wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/mingw/gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
+ && wget https://gstreamer.freedesktop.org/data/pkg/windows/1.18.1/mingw/gstreamer-1.0-mingw-x86_64-1.18.1.msi \
  && msiexec -passive -i gstreamer-1.0-mingw-x86_64-1.18.1.msi \
  && msiexec -passive -i gstreamer-1.0-devel-mingw-x86_64-1.18.1.msi \
  && ln -s ~/.wine/drive_c/ /c \
