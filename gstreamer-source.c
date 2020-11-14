@@ -195,13 +195,13 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	struct obs_source_audio audio = {};
 
-	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps_audio")
-				  ? GST_BUFFER_PTS(buffer)
-				  : data->audio_count;
-
 	audio.frames = info.size / audio_info.bpf;
 	audio.samples_per_sec = audio_info.rate;
 	audio.data[0] = info.data;
+
+	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps_audio")
+				  ? GST_BUFFER_PTS(buffer)
+				  : data->audio_count++ * GST_SECOND * (audio.frames / (double)audio_info.rate);
 
 	switch (audio_info.channels) {
 	case 1:
