@@ -98,7 +98,7 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	struct obs_source_frame frame = {};
 
-	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps")
+	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps_video")
 				  ? GST_BUFFER_PTS(buffer)
 				  : data->frame_count++;
 
@@ -195,7 +195,7 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	struct obs_source_audio audio = {};
 
-	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps")
+	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps_audio")
 				  ? GST_BUFFER_PTS(buffer)
 				  : data->audio_count;
 
@@ -296,7 +296,7 @@ static void start(data_t *data)
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &video_cbs, data,
 				   NULL);
 
-	if (!obs_data_get_bool(data->settings, "sync_appsinks"))
+	if (!obs_data_get_bool(data->settings, "sync_appsink_video"))
 		g_object_set(appsink, "sync", FALSE, NULL);
 
 	// check if connected and remove if not
@@ -315,7 +315,7 @@ static void start(data_t *data)
 	gst_app_sink_set_callbacks(GST_APP_SINK(appsink), &audio_cbs, data,
 				   NULL);
 
-	if (!obs_data_get_bool(data->settings, "sync_appsinks"))
+	if (!obs_data_get_bool(data->settings, "sync_appsink_audio"))
 		g_object_set(appsink, "sync", FALSE, NULL);
 
 	// check if connected and remove if not
@@ -381,8 +381,10 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 		settings, "pipeline",
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 		"audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio.");
-	obs_data_set_default_bool(settings, "use_timestamps", false);
-	obs_data_set_default_bool(settings, "sync_appsinks", true);
+	obs_data_set_default_bool(settings, "use_timestamps_video", false);
+	obs_data_set_default_bool(settings, "use_timestamps_audio", false);
+	obs_data_set_default_bool(settings, "sync_appsink_video", true);
+	obs_data_set_default_bool(settings, "sync_appsink_audio", true);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
@@ -411,10 +413,14 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	obs_property_set_long_description(
 		prop,
 		"Use \"video\" and \"audio\" as names for the media sinks.");
-	obs_properties_add_bool(props, "use_timestamps",
-				"Use pipeline time stamps");
-	obs_properties_add_bool(props, "sync_appsinks",
-				"Sync appsinks to clock");
+	obs_properties_add_bool(props, "use_timestamps_video",
+				"Use pipeline time stamps (video)");
+	obs_properties_add_bool(props, "use_timestamps_audio",
+				"Use pipeline time stamps (audio)");
+	obs_properties_add_bool(props, "sync_appsink_video",
+				"Sync appsink to clock (video)");
+	obs_properties_add_bool(props, "sync_appsink_audio",
+				"Sync appsink to clock (audio)");
 	obs_properties_add_bool(props, "restart_on_eos",
 				"Try to restart when end of stream is reached");
 	obs_properties_add_bool(
