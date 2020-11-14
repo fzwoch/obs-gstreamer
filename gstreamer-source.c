@@ -98,9 +98,10 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	struct obs_source_frame frame = {};
 
-	frame.timestamp = obs_data_get_bool(data->settings, "use_timestamps_video")
-				  ? GST_BUFFER_PTS(buffer)
-				  : data->frame_count++;
+	frame.timestamp =
+		obs_data_get_bool(data->settings, "use_timestamps_video")
+			? GST_BUFFER_PTS(buffer)
+			: data->frame_count++;
 
 	frame.width = video_info.width;
 	frame.height = video_info.height;
@@ -199,9 +200,11 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 	audio.samples_per_sec = audio_info.rate;
 	audio.data[0] = info.data;
 
-	audio.timestamp = obs_data_get_bool(data->settings, "use_timestamps_audio")
-				  ? GST_BUFFER_PTS(buffer)
-				  : data->audio_count++ * GST_SECOND * (audio.frames / (double)audio_info.rate);
+	audio.timestamp =
+		obs_data_get_bool(data->settings, "use_timestamps_audio")
+			? GST_BUFFER_PTS(buffer)
+			: data->audio_count++ * GST_SECOND *
+				  (audio.frames / (double)audio_info.rate);
 
 	switch (audio_info.channels) {
 	case 1:
