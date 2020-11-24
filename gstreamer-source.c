@@ -77,6 +77,12 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 						 "restart_timeout"),
 				start_pipe, data);
 		break;
+	case GST_MESSAGE_WARNING: {
+		GError *err;
+		gst_message_parse_warning(message, &err, NULL);
+		blog(LOG_WARNING, "%s", err->message);
+		g_error_free(err);
+	} break;
 	default:
 		break;
 	}
