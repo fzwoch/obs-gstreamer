@@ -1,7 +1,7 @@
 FROM fzwoch/docker-macos
 
 RUN apt update \
- && apt install -y ninja-build meson p7zip-full wget pkg-config dmg2img \
+ && apt install -y ninja-build meson wget pkg-config g++ \
  && rm -rf /var/lib/apt/lists/*
 
 ENV MACOSX_DEPLOYMENT_TARGET=10.12
@@ -11,21 +11,16 @@ RUN mkdir /opt/osxcross/target/macports \
  && osxcross-macports update-cache \
  && osxcross-macports install gstreamer1 gstreamer1-gst-plugins-base
 
-RUN wget https://github.com/obsproject/obs-studio/archive/26.0.2.tar.gz \
+RUN git clone https://github.com/szcnick/p7zip.git \
+ && make -C p7zip 7z install \
+ && rm -r p7zip
+
+RUN wget https://github.com/obsproject/obs-studio/releases/download/26.0.2/obs-mac-26.0.2.dmg \
+ && wget https://github.com/obsproject/obs-studio/archive/26.0.2.tar.gz \
+ && 7z x obs-mac-26.0.2.dmg \
  && tar xzvf 26.0.2.tar.gz \
+ && mv OBS-Studio\ 26.0.2 OBS \
+ && cp OBS/OBS.app/Contents/Frameworks/libobs.0.dylib OBS/OBS.app/Contents/Frameworks/libobs.dylib \
  && ln -s obs-studio-26.0.2/libobs/ obs \
+ && rm obs-mac-26.0.2.dmg \
  && rm 26.0.2.tar.gz
-
-RUN mkdir -p OBS/OBS.app/Contents/Frameworks
-COPY docker/libobs.0.dylib /OBS/OBS.app/Contents/Frameworks/libobs.dylib
-
-#RUN wget https://github.com/obsproject/obs-studio/releases/download/26.0.2/obs-mac-26.0.2.dmg \
-# && wget https://github.com/obsproject/obs-studio/archive/26.0.2.tar.gz \
-# && dmg2img obs-mac-26.0.2.dmg \
-# && 7z x obs-mac-26.0.2.img || true \
-# && tar xzvf 26.0.2.tar.gz \
-# && cp OBS/OBS.app/Contents/Frameworks/libobs.0.dylib OBS/OBS.app/Contents/Frameworks/libobs.dylib \
-# && ln -s obs-studio-26.0.2/libobs/ obs \
-# && rm obs-mac-26.0.2.dmg \
-# && rm obs-mac-26.0.2.img \
-# && rm 26.0.2.tar.gz
