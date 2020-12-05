@@ -24,6 +24,7 @@ shared_library('obs-gstreamer',
   'gstreamer.c',
   'gstreamer-source.c',
   'gstreamer-encoder.c',
+  'gstreamer-filter.c',
   name_prefix : '',
   dependencies : [
     meson.get_compiler('c').find_library('obs'),
