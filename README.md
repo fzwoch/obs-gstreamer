@@ -11,6 +11,10 @@ clunky use if you are _not_ familiar with GStreamer.
 
 This may be interesting for people trying to run OBS Studio to different platforms like the RaspberryPi or NVIDIA Tegra.
 
+3. An OBS Studio video filter plugin to use GStreamer pipelines as video filters in [OBS Studio].
+
+This may be handy to quickly get some simple filters in but also complex pipelines are possible as long as no rate or dimension changes are done.
+
 Prebuilt
 ---
 
