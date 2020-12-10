@@ -185,14 +185,20 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 
 		gchar *str = g_strdup_printf(
 			"appsrc name=appsrc format=time ! video/x-raw, width=%d, height=%d, format=%s, framerate=0/1 ! "
-			"%s ! appsink name=appsink sync=false",
+			"%s ! videoconvert ! video/x-raw, format=%s ! appsink name=appsink sync=false",
 			frame->width, frame->height, format,
-			obs_data_get_string(data->settings, "pipeline"));
+			obs_data_get_string(data->settings, "pipeline"),
+			format);
 		data->pipe = gst_parse_launch(str, &err);
 		g_free(str);
 		if (err != NULL) {
 			blog(LOG_ERROR, "%s", err->message);
 			g_error_free(err);
+
+			gst_object_unref(data->pipe);
+			data->pipe = NULL;
+
+			return frame;
 		}
 
 		data->appsrc =
@@ -217,6 +223,8 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 
 	GstSample *sample =
 		gst_app_sink_pull_sample(GST_APP_SINK(data->appsink));
+	if (sample == NULL)
+		return frame;
 	buffer = gst_sample_get_buffer(sample);
 
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
