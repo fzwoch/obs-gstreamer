@@ -50,15 +50,15 @@ An example pipeline:
 
 RTMP example:
 
-    uridecodebin uri=rtmp://184.72.239.149/vod/mp4:bigbuckbunny_1500.mp4 name=bin ! queue ! video. bin. ! queue ! audio.
+    uridecodebin uri=rtmp://wowzaec2demo.streamlock.net/vod/mp4:bigbuckbunny_1500.mp4 name=bin ! queue ! video. bin. ! queue ! audio.
 
 RTSP example:
 
-    uridecodebin uri=rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov name=bin ! queue ! video. bin. ! queue ! audio.
+    uridecodebin uri=rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov name=bin ! queue ! video. bin. ! queue ! audio.
 
 HLS example:
 
-    uridecodebin uri=http://184.72.239.149:1935/vod/mp4:sample.mp4/playlist.m3u8 name=bin ! queue ! video. bin. ! queue ! audio.
+    uridecodebin uri=http://wowzaec2demo.streamlock.net:1935/vod/mp4:sample.mp4/playlist.m3u8 name=bin ! queue ! video. bin. ! queue ! audio.
 
 Linux webcam example:
 
