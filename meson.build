@@ -20,6 +20,11 @@
 
 project('obs-gstreamer', 'c')
 
+obs_dep = dependency('libobs', required : false)
+if not obs_dep.found()
+  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
+endif
+
 shared_library('obs-gstreamer',
   'gstreamer.c',
   'gstreamer-source.c',
@@ -27,7 +32,7 @@ shared_library('obs-gstreamer',
   'gstreamer-filter.c',
   name_prefix : '',
   dependencies : [
-    meson.get_compiler('c').find_library('obs'),
+    obs_dep,
     dependency('gstreamer-1.0'),
     dependency('gstreamer-video-1.0'),
     dependency('gstreamer-audio-1.0'),
