@@ -22,14 +22,13 @@ Experimental prebuilt 64-bit Windows plugin is available. You still require the
 official [GStreamer run-time] (MinGW version) to be installed.
 
 Experimental prebuilt macOS plugin available. You still require the GStreamer
-run-time installed via [Homebrew] or [Macports].
+run-time installed via [Macports].
 
 Experimental prebuilt Linux plugin is available. You still require the GStreamer
 run-time installed via your Linux ditribution's package manager.
 
 [OBS Studio]: https://obsproject.com/
 [GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
-[Homebrew]: https://brew.sh/
 [Macports]: https://www.macports.org/
 
 Usage
