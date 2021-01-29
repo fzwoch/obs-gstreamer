@@ -37,29 +37,6 @@ typedef struct {
 	obs_data_t *settings;
 } data_t;
 
-static gboolean bus_callback(GstBus *bus, GstMessage *message,
-			     gpointer user_data)
-{
-	switch (GST_MESSAGE_TYPE(message)) {
-	case GST_MESSAGE_ERROR: {
-		GError *err;
-		gst_message_parse_error(message, &err, NULL);
-		blog(LOG_ERROR, "%s", err->message);
-		g_error_free(err);
-	} break;
-	case GST_MESSAGE_WARNING: {
-		GError *err;
-		gst_message_parse_warning(message, &err, NULL);
-		blog(LOG_WARNING, "%s", err->message);
-		g_error_free(err);
-	} break;
-	default:
-		break;
-	}
-
-	return TRUE;
-}
-
 const char *gstreamer_filter_get_name(void *type_data)
 {
 	return "GStreamer Filter";
