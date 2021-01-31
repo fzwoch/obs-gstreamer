@@ -21,6 +21,8 @@
 #include <obs/obs-module.h>
 #include <gst/gst.h>
 
+extern const char *obs_gstreamer_version;
+
 OBS_DECLARE_MODULE()
 
 // gstreamer-source.c
@@ -61,6 +63,8 @@ gstreamer_filter_filter_video(void *data, struct obs_source_frame *frame);
 
 bool obs_module_load(void)
 {
+	blog(LOG_INFO, "obs-gstreamer build: %s", obs_gstreamer_version);
+
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
 		.type = OBS_SOURCE_TYPE_INPUT,

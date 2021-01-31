@@ -1,0 +1,1 @@
+const char *obs_gstreamer_version = "@VCS_TAG@";

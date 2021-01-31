@@ -30,6 +30,11 @@ shared_library('obs-gstreamer',
   'gstreamer-source.c',
   'gstreamer-encoder.c',
   'gstreamer-filter.c',
+  vcs_tag(
+    command : ['git', 'rev-parse', '--short', 'HEAD'],
+    input : 'version.c.in',
+    output : 'version.c',
+  ),
   name_prefix : '',
   dependencies : [
     obs_dep,
