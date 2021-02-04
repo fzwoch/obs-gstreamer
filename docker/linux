@@ -1,5 +1,5 @@
 FROM debian:bullseye
 
 RUN apt update \
- && apt install -y git gcc ninja-build meson libobs-dev libgstreamer-plugins-base1.0-dev \
+ && apt install -y git libsimde-dev gcc ninja-build meson libobs-dev libgstreamer-plugins-base1.0-dev \
  && rm -rf /var/lib/apt/lists/*
