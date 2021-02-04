@@ -60,6 +60,8 @@ extern obs_properties_t *gstreamer_filter_get_properties(void *data);
 extern void gstreamer_filter_update(void *data, obs_data_t *settings);
 extern struct obs_source_frame *
 gstreamer_filter_filter_video(void *data, struct obs_source_frame *frame);
+struct obs_audio_data *
+gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data);
 
 bool obs_module_load(void)
 {
@@ -107,7 +109,7 @@ bool obs_module_load(void)
 	struct obs_source_info filter_info = {
 		.id = "gstreamer-filter",
 		.type = OBS_SOURCE_TYPE_FILTER,
-		.output_flags = OBS_SOURCE_ASYNC_VIDEO,
+		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO,
 
 		.get_name = gstreamer_filter_get_name,
 		.create = gstreamer_filter_create,
@@ -118,6 +120,7 @@ bool obs_module_load(void)
 		.update = gstreamer_filter_update,
 
 		.filter_video = gstreamer_filter_filter_video,
+		.filter_audio = gstreamer_filter_filter_audio,
 	};
 
 	obs_register_source(&filter_info);
