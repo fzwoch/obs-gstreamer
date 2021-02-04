@@ -124,10 +124,12 @@ obs_properties_t *gstreamer_filter_get_properties(void *data)
 
 	obs_property_t *prop = obs_properties_add_text(
 		props, "video_pipeline", "Video pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "Use \"identity\" for passthru");
+	obs_property_set_long_description(prop,
+					  "Use \"identity\" for passthru");
 	prop = obs_properties_add_text(props, "audio_pipeline",
 				       "Audio pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "Use \"identity\" for passthru");
+	obs_property_set_long_description(prop,
+					  "Use \"identity\" for passthru");
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
 				   data);
 
