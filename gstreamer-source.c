@@ -37,8 +37,7 @@ typedef struct {
 	GCond cond;
 } data_t;
 
-static void start(data_t *data);
-static void stop(data_t *data);
+static void create_pipeline(data_t *data);
 
 static gboolean start_pipe(gpointer user_data)
 {
@@ -46,7 +45,10 @@ static gboolean start_pipe(gpointer user_data)
 
 	data->timeout_id = 0;
 
-	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
+
+	create_pipeline(data);
 
 	return FALSE;
 }
@@ -288,13 +290,9 @@ static gboolean loop_startup(gpointer user_data)
 	return FALSE;
 }
 
-static gpointer _start(gpointer user_data)
+static void create_pipeline(data_t *data)
 {
-	data_t *data = user_data;
 	GError *err = NULL;
-	GMainContext *context = g_main_context_new();
-
-	g_main_context_push_thread_default(context);
 
 	gchar *pipeline = g_strdup_printf(
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
@@ -310,7 +308,7 @@ static gpointer _start(gpointer user_data)
 
 		obs_source_output_video(data->source, NULL);
 
-		goto run;
+		return;
 	}
 
 	GstAppSinkCallbacks video_cbs = {NULL, NULL, video_new_sample};
@@ -360,8 +358,18 @@ static gpointer _start(gpointer user_data)
 	gst_object_unref(bus);
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+}
 
-run:
+static gpointer _start(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	GMainContext *context = g_main_context_new();
+
+	g_main_context_push_thread_default(context);
+
+	create_pipeline(data);
+
 	data->loop = g_main_loop_new(context, FALSE);
 
 	GSource *source = g_idle_source_new();
