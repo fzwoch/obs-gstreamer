@@ -103,7 +103,7 @@ void gstreamer_filter_get_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "video_pipeline",
 				    "videoflip video-direction=horiz");
 	obs_data_set_default_string(settings, "audio_pipeline",
-				    "audioecho delay=200000000  intensity=0.3");
+				    "audioecho delay=200000000 intensity=0.3");
 }
 
 void gstreamer_filter_update(void *data, obs_data_t *settings);
@@ -124,10 +124,10 @@ obs_properties_t *gstreamer_filter_get_properties(void *data)
 
 	obs_property_t *prop = obs_properties_add_text(
 		props, "video_pipeline", "Video pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "TODO");
+	obs_property_set_long_description(prop, "Use \"identity\" for passthru");
 	prop = obs_properties_add_text(props, "audio_pipeline",
 				       "Audio pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "TODO");
+	obs_property_set_long_description(prop, "Use \"identity\" for passthru");
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
 				   data);
 
