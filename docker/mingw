@@ -1,7 +1,7 @@
 FROM debian:bullseye
 
 RUN apt update \
- && apt install -y mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine \
+ && apt install -y git mingw-w64 mingw-w64-tools ninja-build python3-pip unzip wget wine \
  && pip3 install meson \
  && rm -rf /var/lib/apt/lists/*
 
