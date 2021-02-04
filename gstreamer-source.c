@@ -54,23 +54,21 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 	data_t *data = user_data;
 
 	switch (GST_MESSAGE_TYPE(message)) {
-	case GST_MESSAGE_EOS:
-		if (obs_data_get_bool(data->settings, "restart_on_eos"))
-			gst_element_seek_simple(data->pipe, GST_FORMAT_TIME,
-						GST_SEEK_FLAG_FLUSH, 0);
-		else if (obs_data_get_bool(data->settings, "clear_on_end"))
-			obs_source_output_video(data->source, NULL);
-		break;
 	case GST_MESSAGE_ERROR: {
 		GError *err;
 		gst_message_parse_error(message, &err, NULL);
 		blog(LOG_ERROR, "%s", err->message);
 		g_error_free(err);
-	}
+	} // fallthrough
+	case GST_MESSAGE_EOS:
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 		if (obs_data_get_bool(data->settings, "clear_on_end"))
 			obs_source_output_video(data->source, NULL);
-		if (obs_data_get_bool(data->settings, "restart_on_error") &&
+		if (obs_data_get_bool(data->settings,
+				      GST_MESSAGE_TYPE(message) ==
+						      GST_MESSAGE_ERROR
+					      ? "restart_on_error"
+					      : "restart_on_eos") &&
 		    data->timeout_id == 0)
 			data->timeout_id = g_timeout_add(
 				obs_data_get_int(data->settings,
