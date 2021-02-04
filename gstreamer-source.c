@@ -73,11 +73,15 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 						      GST_MESSAGE_ERROR
 					      ? "restart_on_error"
 					      : "restart_on_eos") &&
-		    data->timeout_id == 0)
-			data->timeout_id = g_timeout_add(
-				obs_data_get_int(data->settings,
-						 "restart_timeout"),
-				start_pipe, data);
+		    data->timeout_id == 0) {
+			GSource *source = g_timeout_source_new_seconds(obs_data_get_int(data->settings,
+						 "restart_timeout"));
+			g_source_set_callback (source,
+                       start_pipe,
+                       data,
+                       NULL);
+			data->timeout_id = g_source_attach(source, g_main_context_get_thread_default());
+			}
 		break;
 	case GST_MESSAGE_WARNING: {
 		GError *err;
