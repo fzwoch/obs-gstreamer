@@ -51,11 +51,13 @@ extern bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
 					     size_t *size);
 
 // gstreamer-filter.c
-extern const char *gstreamer_filter_get_name(void *type_data);
+extern const char *gstreamer_filter_get_name_video(void *type_data);
+extern const char *gstreamer_filter_get_name_audio(void *type_data);
 extern void *gstreamer_filter_create(obs_data_t *settings,
 				     obs_source_t *source);
 extern void gstreamer_filter_destroy(void *data);
-extern void gstreamer_filter_get_defaults(obs_data_t *settings);
+extern void gstreamer_filter_get_defaults_video(obs_data_t *settings);
+extern void gstreamer_filter_get_defaults_audio(obs_data_t *settings);
 extern obs_properties_t *gstreamer_filter_get_properties(void *data);
 extern void gstreamer_filter_update(void *data, obs_data_t *settings);
 extern struct obs_source_frame *
@@ -106,24 +108,41 @@ bool obs_module_load(void)
 
 	obs_register_encoder(&encoder_info);
 
-	struct obs_source_info filter_info = {
-		.id = "gstreamer-filter",
+	struct obs_source_info filter_info_video = {
+		.id = "gstreamer-filter-video",
 		.type = OBS_SOURCE_TYPE_FILTER,
-		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO,
+		.output_flags = OBS_SOURCE_ASYNC_VIDEO,
 
-		.get_name = gstreamer_filter_get_name,
+		.get_name = gstreamer_filter_get_name_video,
 		.create = gstreamer_filter_create,
 		.destroy = gstreamer_filter_destroy,
 
-		.get_defaults = gstreamer_filter_get_defaults,
+		.get_defaults = gstreamer_filter_get_defaults_video,
 		.get_properties = gstreamer_filter_get_properties,
 		.update = gstreamer_filter_update,
 
 		.filter_video = gstreamer_filter_filter_video,
+	};
+
+	obs_register_source(&filter_info_video);
+
+	struct obs_source_info filter_info_audio = {
+		.id = "gstreamer-filter-audio",
+		.type = OBS_SOURCE_TYPE_FILTER,
+		.output_flags = OBS_SOURCE_AUDIO,
+
+		.get_name = gstreamer_filter_get_name_audio,
+		.create = gstreamer_filter_create,
+		.destroy = gstreamer_filter_destroy,
+
+		.get_defaults = gstreamer_filter_get_defaults_audio,
+		.get_properties = gstreamer_filter_get_properties,
+		.update = gstreamer_filter_update,
+
 		.filter_audio = gstreamer_filter_filter_audio,
 	};
 
-	obs_register_source(&filter_info);
+	obs_register_source(&filter_info_audio);
 
 	gst_init(NULL, NULL);
 

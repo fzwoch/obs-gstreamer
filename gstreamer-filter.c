@@ -25,21 +25,23 @@
 #include <gst/app/app.h>
 
 typedef struct {
-	GstElement *video_pipe;
-	GstElement *video_appsrc;
-	GstElement *video_appsink;
+	GstElement *pipe;
+	GstElement *appsrc;
+	GstElement *appsink;
 	gint frame_size;
-	GstElement *audio_pipe;
-	GstElement *audio_appsrc;
-	GstElement *audio_appsink;
 	GstAudioInfo audio_info;
 	obs_source_t *source;
 	obs_data_t *settings;
 } data_t;
 
-const char *gstreamer_filter_get_name(void *type_data)
+const char *gstreamer_filter_get_name_video(void *type_data)
 {
-	return "GStreamer Filter";
+	return "GStreamer Filter (Video)";
+}
+
+const char *gstreamer_filter_get_name_audio(void *type_data)
+{
+	return "GStreamer Filter (Audio)";
 }
 
 void *gstreamer_filter_create(obs_data_t *settings, obs_source_t *source)
@@ -56,30 +58,26 @@ void gstreamer_filter_destroy(void *p)
 {
 	data_t *data = (data_t *)p;
 
-	if (data->video_pipe != NULL) {
-		gst_element_set_state(data->video_pipe, GST_STATE_NULL);
+	if (data->pipe != NULL) {
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
-		gst_object_unref(data->video_appsrc);
-		gst_object_unref(data->video_appsink);
-		gst_object_unref(data->video_pipe);
-	}
-
-	if (data->audio_pipe != NULL) {
-		gst_element_set_state(data->audio_pipe, GST_STATE_NULL);
-
-		gst_object_unref(data->audio_appsrc);
-		gst_object_unref(data->audio_appsink);
-		gst_object_unref(data->audio_pipe);
+		gst_object_unref(data->appsrc);
+		gst_object_unref(data->appsink);
+		gst_object_unref(data->pipe);
 	}
 
 	g_free(data);
 }
 
-void gstreamer_filter_get_defaults(obs_data_t *settings)
+void gstreamer_filter_get_defaults_video(obs_data_t *settings)
 {
-	obs_data_set_default_string(settings, "video_pipeline",
+	obs_data_set_default_string(settings, "pipeline",
 				    "videoflip video-direction=horiz");
-	obs_data_set_default_string(settings, "audio_pipeline",
+}
+
+void gstreamer_filter_get_defaults_audio(obs_data_t *settings)
+{
+	obs_data_set_default_string(settings, "pipeline",
 				    "audioecho delay=200000000 intensity=0.3");
 }
 
@@ -100,11 +98,7 @@ obs_properties_t *gstreamer_filter_get_properties(void *data)
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
 	obs_property_t *prop = obs_properties_add_text(
-		props, "video_pipeline", "Video pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop,
-					  "Use \"identity\" for passthru");
-	prop = obs_properties_add_text(props, "audio_pipeline",
-				       "Audio pipeline", OBS_TEXT_MULTILINE);
+		props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
 	obs_property_set_long_description(prop,
 					  "Use \"identity\" for passthru");
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
@@ -117,28 +111,16 @@ void gstreamer_filter_update(void *p, obs_data_t *settings)
 {
 	data_t *data = (data_t *)p;
 
-	if (data->video_pipe != NULL) {
-		gst_element_set_state(data->video_pipe, GST_STATE_NULL);
+	if (data->pipe != NULL) {
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
-		gst_object_unref(data->video_appsink);
-		gst_object_unref(data->video_appsrc);
-		gst_object_unref(data->video_pipe);
+		gst_object_unref(data->appsink);
+		gst_object_unref(data->appsrc);
+		gst_object_unref(data->pipe);
 
-		data->video_appsink = NULL;
-		data->video_appsrc = NULL;
-		data->video_pipe = NULL;
-	}
-
-	if (data->audio_pipe != NULL) {
-		gst_element_set_state(data->audio_pipe, GST_STATE_NULL);
-
-		gst_object_unref(data->audio_appsink);
-		gst_object_unref(data->audio_appsrc);
-		gst_object_unref(data->audio_pipe);
-
-		data->audio_appsink = NULL;
-		data->audio_appsrc = NULL;
-		data->audio_pipe = NULL;
+		data->appsink = NULL;
+		data->appsrc = NULL;
+		data->pipe = NULL;
 	}
 }
 
@@ -148,7 +130,7 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 	GstMapInfo info;
 	data_t *data = (data_t *)p;
 
-	if (data->video_pipe == NULL) {
+	if (data->pipe == NULL) {
 		GError *err = NULL;
 		gchar *format = "";
 
@@ -196,26 +178,26 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 			"appsrc name=appsrc format=time ! video/x-raw, width=%d, height=%d, format=%s, framerate=0/1 ! videoconvert ! "
 			"%s ! videoconvert ! video/x-raw, width=%d, height=%d, format=%s, framerate=0/1 ! appsink name=appsink sync=false",
 			frame->width, frame->height, format,
-			obs_data_get_string(data->settings, "video_pipeline"),
+			obs_data_get_string(data->settings, "pipeline"),
 			frame->width, frame->height, format);
-		data->video_pipe = gst_parse_launch(str, &err);
+		data->pipe = gst_parse_launch(str, &err);
 		g_free(str);
 		if (err != NULL) {
 			blog(LOG_ERROR, "%s", err->message);
 			g_error_free(err);
 
-			gst_object_unref(data->video_pipe);
-			data->video_pipe = NULL;
+			gst_object_unref(data->pipe);
+			data->pipe = NULL;
 
 			return frame;
 		}
 
-		data->video_appsrc = gst_bin_get_by_name(
-			GST_BIN(data->video_pipe), "appsrc");
-		data->video_appsink = gst_bin_get_by_name(
-			GST_BIN(data->video_pipe), "appsink");
+		data->appsrc =
+			gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
+		data->appsink =
+			gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 
-		gst_element_set_state(data->video_pipe, GST_STATE_PLAYING);
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 	}
 
 	GstBuffer *buffer =
@@ -224,10 +206,10 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 
 	GST_BUFFER_PTS(buffer) = frame->timestamp;
 
-	gst_app_src_push_buffer(GST_APP_SRC(data->video_appsrc), buffer);
+	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
 	GstSample *sample =
-		gst_app_sink_pull_sample(GST_APP_SINK(data->video_appsink));
+		gst_app_sink_pull_sample(GST_APP_SINK(data->appsink));
 	if (sample == NULL)
 		return frame;
 	buffer = gst_sample_get_buffer(sample);
@@ -249,7 +231,7 @@ gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data)
 	GstMapInfo info;
 	data_t *data = (data_t *)p;
 
-	if (data->audio_pipe == NULL) {
+	if (data->pipe == NULL) {
 		GError *err = NULL;
 		struct obs_audio_info audio_info;
 
@@ -266,26 +248,26 @@ gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data)
 			"appsrc name=appsrc format=time ! audio/x-raw, rate=%d, channels=%d, format=F32LE, layout=non-interleaved ! audioconvert ! "
 			"%s ! audioconvert ! audio/x-raw, rate=%d, channels=%d, format=F32LE, layout=non-interleaved ! appsink name=appsink sync=false",
 			data->audio_info.rate, data->audio_info.channels,
-			obs_data_get_string(data->settings, "audio_pipeline"),
+			obs_data_get_string(data->settings, "pipeline"),
 			data->audio_info.rate, data->audio_info.channels);
-		data->audio_pipe = gst_parse_launch(str, &err);
+		data->pipe = gst_parse_launch(str, &err);
 		g_free(str);
 		if (err != NULL) {
 			blog(LOG_ERROR, "%s", err->message);
 			g_error_free(err);
 
-			gst_object_unref(data->audio_pipe);
-			data->audio_pipe = NULL;
+			gst_object_unref(data->pipe);
+			data->pipe = NULL;
 
 			return audio_data;
 		}
 
-		data->audio_appsrc = gst_bin_get_by_name(
-			GST_BIN(data->audio_pipe), "appsrc");
-		data->audio_appsink = gst_bin_get_by_name(
-			GST_BIN(data->audio_pipe), "appsink");
+		data->appsrc =
+			gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
+		data->appsink =
+			gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
 
-		gst_element_set_state(data->audio_pipe, GST_STATE_PLAYING);
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 	}
 
 	gint channel_size = data->audio_info.bpf * audio_data->frames /
@@ -306,10 +288,10 @@ gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data)
 				  NULL);
 	GST_BUFFER_PTS(buffer) = audio_data->timestamp;
 
-	gst_app_src_push_buffer(GST_APP_SRC(data->audio_appsrc), buffer);
+	gst_app_src_push_buffer(GST_APP_SRC(data->appsrc), buffer);
 
 	GstSample *sample =
-		gst_app_sink_pull_sample(GST_APP_SINK(data->audio_appsink));
+		gst_app_sink_pull_sample(GST_APP_SINK(data->appsink));
 	if (sample == NULL)
 		return audio_data;
 
