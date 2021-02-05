@@ -31,10 +31,13 @@ typedef struct {
 	gint64 frame_count;
 	gint64 audio_count;
 	guint timeout_id;
+	GThread *thread;
+	GMainLoop *loop;
+	GMutex mutex;
+	GCond cond;
 } data_t;
 
-static void start(data_t *data);
-static void stop(data_t *data);
+static void create_pipeline(data_t *data);
 
 static gboolean start_pipe(gpointer user_data)
 {
@@ -42,8 +45,10 @@ static gboolean start_pipe(gpointer user_data)
 
 	data->timeout_id = 0;
 
-	stop(data);
-	start(data);
+	gst_object_unref(data->pipe);
+	data->pipe = NULL;
+
+	create_pipeline(data);
 
 	return FALSE;
 }
@@ -69,11 +74,13 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 						      GST_MESSAGE_ERROR
 					      ? "restart_on_error"
 					      : "restart_on_eos") &&
-		    data->timeout_id == 0)
-			data->timeout_id = g_timeout_add(
-				obs_data_get_int(data->settings,
-						 "restart_timeout"),
-				start_pipe, data);
+		    data->timeout_id == 0) {
+			GSource *source = g_timeout_source_new(obs_data_get_int(
+				data->settings, "restart_timeout"));
+			g_source_set_callback(source, start_pipe, data, NULL);
+			data->timeout_id = g_source_attach(
+				source, g_main_context_get_thread_default());
+		}
 		break;
 	case GST_MESSAGE_WARNING: {
 		GError *err;
@@ -272,7 +279,18 @@ const char *gstreamer_source_get_name(void *type_data)
 	return "GStreamer Source";
 }
 
-static void start(data_t *data)
+static gboolean loop_startup(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	g_mutex_lock(&data->mutex);
+	g_cond_signal(&data->cond);
+	g_mutex_unlock(&data->mutex);
+
+	return FALSE;
+}
+
+static void create_pipeline(data_t *data)
 {
 	GError *err = NULL;
 
@@ -283,18 +301,15 @@ static void start(data_t *data)
 		obs_data_get_string(data->settings, "pipeline"));
 
 	data->pipe = gst_parse_launch(pipeline, &err);
+	g_free(pipeline);
 	if (err != NULL) {
 		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
 		g_error_free(err);
 
 		obs_source_output_video(data->source, NULL);
 
-		g_free(pipeline);
-
 		return;
 	}
-
-	g_free(pipeline);
 
 	GstAppSinkCallbacks video_cbs = {NULL, NULL, video_new_sample};
 
@@ -345,12 +360,63 @@ static void start(data_t *data)
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
+static gpointer _start(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	GMainContext *context = g_main_context_new();
+
+	g_main_context_push_thread_default(context);
+
+	create_pipeline(data);
+
+	data->loop = g_main_loop_new(context, FALSE);
+
+	GSource *source = g_idle_source_new();
+	g_source_set_callback(source, loop_startup, data, NULL);
+	g_source_attach(source, context);
+
+	g_main_loop_run(data->loop);
+
+	if (data->pipe != NULL) {
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+		gst_object_unref(data->pipe);
+		data->pipe = NULL;
+	}
+
+	if (data->timeout_id != 0) {
+		g_source_remove(data->timeout_id);
+		data->timeout_id = 0;
+	}
+
+	g_main_loop_unref(data->loop);
+	data->loop = NULL;
+
+	g_main_context_unref(context);
+
+	return NULL;
+}
+
+static void start(data_t *data)
+{
+	g_mutex_lock(&data->mutex);
+
+	data->thread = g_thread_new("GStreamer Source", _start, data);
+
+	g_cond_wait(&data->cond, &data->mutex);
+	g_mutex_unlock(&data->mutex);
+}
+
 void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 {
 	data_t *data = g_new0(data_t, 1);
 
 	data->source = source;
 	data->settings = settings;
+
+	g_mutex_init(&data->mutex);
+	g_cond_init(&data->cond);
 
 	if (obs_data_get_bool(settings, "stop_on_hide") == false)
 		start(data);
@@ -360,25 +426,26 @@ void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 
 static void stop(data_t *data)
 {
-	if (data->timeout_id != 0) {
-		g_source_remove(data->timeout_id);
-		data->timeout_id = 0;
-	}
-
-	if (data->pipe == NULL) {
+	if (data->thread == NULL)
 		return;
-	}
 
-	gst_element_set_state(data->pipe, GST_STATE_NULL);
-	gst_object_unref(data->pipe);
-	data->pipe = NULL;
+	g_main_loop_quit(data->loop);
+
+	g_thread_join(data->thread);
+	data->thread = NULL;
 
 	obs_source_output_video(data->source, NULL);
 }
 
-void gstreamer_source_destroy(void *data)
+void gstreamer_source_destroy(void *user_data)
 {
+	data_t *data = user_data;
+
 	stop(data);
+
+	g_mutex_clear(&data->mutex);
+	g_cond_clear(&data->cond);
+
 	g_free(data);
 }
 
