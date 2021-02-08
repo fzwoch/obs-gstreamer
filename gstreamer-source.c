@@ -45,6 +45,10 @@ static gboolean start_pipe(gpointer user_data)
 
 	data->timeout_id = 0;
 
+	GstBus *bus = gst_element_get_bus(data->pipe);
+	gst_bus_remove_watch(bus);
+	gst_object_unref(bus);
+
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
 
@@ -380,6 +384,10 @@ static gpointer _start(gpointer user_data)
 
 	if (data->pipe != NULL) {
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
 
 		gst_object_unref(data->pipe);
 		data->pipe = NULL;
