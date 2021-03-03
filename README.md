@@ -86,7 +86,7 @@ It will install into the obs-plugins directory inside whatever libdir in meson i
 
 E.g.
 ```shell
-meson --buildtype=release --libdir=lib
+meson --buildtype=release --libdir=lib build
 ```
 will install at /usr/local/lib/obs-plugins.
 
@@ -95,6 +95,6 @@ If you want it to install outside of /usr/local you will have to set a prefix as
 
 E.g.
 ```shell
-meson --buildtype=release --libdir=lib --prefix=/usr
+meson --buildtype=release --libdir=lib --prefix=/usr build
 ```
 You can also make it install in your user home directory (wherever that directory was exactly..)
