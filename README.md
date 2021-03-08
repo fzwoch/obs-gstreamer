@@ -55,6 +55,10 @@ RTSP example:
 
     uridecodebin uri=rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov name=bin ! queue ! video. bin. ! queue ! audio.
 
+RTSP example with h265 decoding via Nvidia GPU and MP2L2 audio extraction:
+
+    rtspsrc location=rtspt://admin:*****@*****.ath.cx:555/Streaming/Channels/101 name=bin ! queue ! rtph265depay ! nvdec ! gldownload ! watchdog timeout=10000 ! video. bin. ! queue ! rtpmpadepay ! mpegaudioparse ! mpg123audiodec ! audio.
+
 HLS example:
 
     uridecodebin uri=http://wowzaec2demo.streamlock.net:1935/vod/mp4:sample.mp4/playlist.m3u8 name=bin ! queue ! video. bin. ! queue ! audio.
@@ -66,6 +70,8 @@ Linux webcam example:
 Linux webcam example with watchdog (automatically restarts the pipeline if the webcam stream crashes for some reason):
 
     v4l2src ! watchdog ! decodebin ! video.
+
+
 
 If you don't understand what is happening in these lines please check the
 GStreamer documentation as mentioned above!
