@@ -30,6 +30,7 @@ shared_library('obs-gstreamer',
   'gstreamer-source.c',
   'gstreamer-encoder.c',
   'gstreamer-filter.c',
+  'gstreamer-output.c',
   vcs_tag(
     command : ['git', 'rev-parse', '--short', 'HEAD'],
     input : 'version.c.in',
