@@ -66,11 +66,11 @@ macos:
   image: registry.gitlab.com/fzwoch/obs-gstreamer/macos
   script:
     - echo "[binaries]" >> cross.txt
-    - echo "c = 'x86_64-apple-darwin18-cc'" >> cross.txt
-    - echo "cpp = 'x86_64-apple-darwin18-c++'" >> cross.txt
-    - echo "ar = 'x86_64-apple-darwin18-ar'" >> cross.txt
-    - echo "strip = 'x86_64-apple-darwin18-strip'" >> cross.txt
-    - echo "pkgconfig = 'x86_64-apple-darwin18-pkg-config'" >> cross.txt
+    - echo "c = 'x86_64-apple-darwin20.2-cc'" >> cross.txt
+    - echo "cpp = 'x86_64-apple-darwin20.2-c++'" >> cross.txt
+    - echo "ar = 'x86_64-apple-darwin20.2-ar'" >> cross.txt
+    - echo "strip = 'x86_64-apple-darwin20.2-strip'" >> cross.txt
+    - echo "pkgconfig = 'x86_64-apple-darwin20.2-pkg-config'" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
     - echo "system = 'darwin'" >> cross.txt
@@ -88,6 +88,35 @@ macos:
   artifacts:
     paths:
       - macos/obs-gstreamer.so
+    expire_in: 1 day
+
+.macos-aarch64:
+  stage: build
+  image: registry.gitlab.com/fzwoch/obs-gstreamer/macos
+  script:
+    - echo "[binaries]" >> cross.txt
+    - echo "c = 'aarch64-apple-darwin20.2-cc'" >> cross.txt
+    - echo "cpp = 'aarch64-apple-darwin20.2-c++'" >> cross.txt
+    - echo "ar = 'aarch64-apple-darwin20.2-ar'" >> cross.txt
+    - echo "strip = 'aarch64-apple-darwin20.2-strip'" >> cross.txt
+    - echo "pkgconfig = 'aarch64-apple-darwin20.2-pkg-config'" >> cross.txt
+
+    - echo "[host_machine]" >> cross.txt
+    - echo "system = 'darwin'" >> cross.txt
+    - echo "cpu_family = 'aarch64'" >> cross.txt
+    - echo "cpu = 'aarch64'" >> cross.txt
+    - echo "endian = 'little'" >> cross.txt
+
+    - export C_INCLUDE_PATH=/
+    - export LIBRARY_PATH=/OBS/OBS.app/Contents/Frameworks
+
+    - meson --buildtype release --cross-file cross.txt macos-aarch64
+    - ninja -C macos-aarch64
+
+    - mv macos-aarch64/obs-gstreamer.dylib macos-aarch64/obs-gstreamer.so
+  artifacts:
+    paths:
+      - macos-aarch64/obs-gstreamer.so
     expire_in: 1 day
 
 windows:
