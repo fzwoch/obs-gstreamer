@@ -54,6 +54,9 @@ static gboolean start_pipe(gpointer user_data)
 
 	create_pipeline(data);
 
+	if (data->pipe)
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
 	return FALSE;
 }
 
@@ -287,9 +290,14 @@ static gboolean loop_startup(gpointer user_data)
 {
 	data_t *data = user_data;
 
+	create_pipeline(data);
+
 	g_mutex_lock(&data->mutex);
 	g_cond_signal(&data->cond);
 	g_mutex_unlock(&data->mutex);
+
+	if (data->pipe)
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
 	return FALSE;
 }
@@ -360,8 +368,6 @@ static void create_pipeline(data_t *data)
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);
 	gst_object_unref(bus);
-
-	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 }
 
 static gpointer _start(gpointer user_data)
@@ -371,8 +377,6 @@ static gpointer _start(gpointer user_data)
 	GMainContext *context = g_main_context_new();
 
 	g_main_context_push_thread_default(context);
-
-	create_pipeline(data);
 
 	data->loop = g_main_loop_new(context, FALSE);
 
