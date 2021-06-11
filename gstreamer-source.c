@@ -30,7 +30,7 @@ typedef struct {
 	obs_data_t *settings;
 	gint64 frame_count;
 	gint64 audio_count;
-	guint timeout_id;
+	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
 	GMutex mutex;
@@ -39,11 +39,18 @@ typedef struct {
 
 static void create_pipeline(data_t *data);
 
-static gboolean start_pipe(gpointer user_data)
+static void timeout_destroy(gpointer user_data)
 {
 	data_t *data = user_data;
 
-	data->timeout_id = 0;
+	g_source_destroy(data->timeout);
+	g_source_unref(data->timeout);
+	data->timeout = NULL;
+}
+
+static gboolean start_pipe(gpointer user_data)
+{
+	data_t *data = user_data;
 
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_remove_watch(bus);
@@ -57,7 +64,7 @@ static gboolean start_pipe(gpointer user_data)
 	if (data->pipe)
 		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
-	return FALSE;
+	return G_SOURCE_REMOVE;
 }
 
 static gboolean bus_callback(GstBus *bus, GstMessage *message,
@@ -81,12 +88,13 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 						      GST_MESSAGE_ERROR
 					      ? "restart_on_error"
 					      : "restart_on_eos") &&
-		    data->timeout_id == 0) {
-			GSource *source = g_timeout_source_new(obs_data_get_int(
+		    data->timeout == NULL) {
+			data->timeout = g_timeout_source_new(obs_data_get_int(
 				data->settings, "restart_timeout"));
-			g_source_set_callback(source, start_pipe, data, NULL);
-			data->timeout_id = g_source_attach(
-				source, g_main_context_get_thread_default());
+			g_source_set_callback(data->timeout, start_pipe, data,
+					      timeout_destroy);
+			g_source_attach(data->timeout,
+					g_main_context_get_thread_default());
 		}
 		break;
 	case GST_MESSAGE_WARNING: {
@@ -299,7 +307,7 @@ static gboolean loop_startup(gpointer user_data)
 	if (data->pipe)
 		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
-	return FALSE;
+	return G_SOURCE_REMOVE;
 }
 
 static void create_pipeline(data_t *data)
@@ -395,11 +403,6 @@ static gpointer _start(gpointer user_data)
 
 		gst_object_unref(data->pipe);
 		data->pipe = NULL;
-	}
-
-	if (data->timeout_id != 0) {
-		g_source_remove(data->timeout_id);
-		data->timeout_id = 0;
 	}
 
 	g_main_loop_unref(data->loop);
