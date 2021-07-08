@@ -519,9 +519,9 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	obs_properties_add_bool(props, "sync_appsink_audio",
 				"Sync appsink to clock (audio)");
 	obs_properties_add_bool(props, "disable_async_appsink_video",
-				"Set async=false in appsink (video)");
+				"Disable asynchronous state change in appsink (video)");
 	obs_properties_add_bool(props, "disable_async_appsink_audio",
-				"Set async=false in appsink (audio)");
+				"Disable asynchronous state change in appsink (audio)");
 	obs_properties_add_bool(props, "restart_on_eos",
 				"Try to restart when end of stream is reached");
 	obs_properties_add_bool(
