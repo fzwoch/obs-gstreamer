@@ -340,6 +340,9 @@ static void create_pipeline(data_t *data)
 
 	if (!obs_data_get_bool(data->settings, "sync_appsink_video"))
 		g_object_set(appsink, "sync", FALSE, NULL);
+    
+	if (obs_data_get_bool(data->settings, "disable_async_appsink_video"))
+		g_object_set(appsink, "async", FALSE, NULL);
 
 	// check if connected and remove if not
 	GstElement *sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
@@ -359,6 +362,9 @@ static void create_pipeline(data_t *data)
 
 	if (!obs_data_get_bool(data->settings, "sync_appsink_audio"))
 		g_object_set(appsink, "sync", FALSE, NULL);
+    
+	if (obs_data_get_bool(data->settings, "disable_async_appsink_audio"))
+		g_object_set(appsink, "async", FALSE, NULL);
 
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
@@ -474,6 +480,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "use_timestamps_audio", false);
 	obs_data_set_default_bool(settings, "sync_appsink_video", true);
 	obs_data_set_default_bool(settings, "sync_appsink_audio", true);
+	obs_data_set_default_bool(settings, "disable_async_appsink_video", false);
+	obs_data_set_default_bool(settings, "disable_async_appsink_audio", false);
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
@@ -510,6 +518,10 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 				"Sync appsink to clock (video)");
 	obs_properties_add_bool(props, "sync_appsink_audio",
 				"Sync appsink to clock (audio)");
+	obs_properties_add_bool(props, "disable_async_appsink_video",
+				"Set async=false in appsink (video)");
+	obs_properties_add_bool(props, "disable_async_appsink_audio",
+				"Set async=false in appsink (audio)");
 	obs_properties_add_bool(props, "restart_on_eos",
 				"Try to restart when end of stream is reached");
 	obs_properties_add_bool(
