@@ -19,6 +19,7 @@
  */
 
 #include <obs/obs-module.h>
+#include <obs/obs-frontend-api.h>
 #include <gst/gst.h>
 
 extern const char *obs_gstreamer_version;
@@ -76,6 +77,11 @@ extern void gstreamer_output_raw_video(void *data, struct video_data *frame);
 extern void gstreamer_output_raw_audio(void *data, struct audio_data *frames);
 extern void gstreamer_output_encoded_packet(void *data,
 					    struct encoder_packet *packet);
+
+
+static void lol(void*d) {
+	printf("DEWDWE\n");
+}
 
 bool obs_module_load(void)
 {
@@ -173,6 +179,8 @@ bool obs_module_load(void)
 	};
 
 	obs_register_output(&output_info);
+
+	obs_frontend_add_tools_menu_item("GStreamer Output", lol, NULL);
 
 	gst_init(NULL, NULL);
 
