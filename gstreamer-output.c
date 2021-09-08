@@ -22,7 +22,8 @@
 #include <gst/gst.h>
 
 typedef struct {
-
+	obs_output_t *output;
+	obs_data_t *settings;
 } data_t;
 
 const char *gstreamer_output_get_name(void *type_data)
@@ -33,6 +34,9 @@ const char *gstreamer_output_get_name(void *type_data)
 void *gstreamer_output_create(obs_data_t *settings, obs_output_t *output)
 {
 	data_t *data = g_new0(data_t, 1);
+
+	data->output = output;
+	data->settings = settings;
 
 	return data;
 }
