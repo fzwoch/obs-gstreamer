@@ -73,8 +73,6 @@ extern void *gstreamer_output_create(obs_data_t *settings,
 extern void gstreamer_output_destroy(void *data);
 extern bool gstreamer_output_start(void *data);
 extern void gstreamer_output_stop(void *data, uint64_t ts);
-extern void gstreamer_output_raw_video(void *data, struct video_data *frame);
-extern void gstreamer_output_raw_audio(void *data, struct audio_data *frames);
 extern void gstreamer_output_encoded_packet(void *data,
 					    struct encoder_packet *packet);
 
@@ -159,16 +157,13 @@ bool obs_module_load(void)
 
 	struct obs_output_info output_info = {
 		.id = "gstreamer-output",
-		.flags = OBS_OUTPUT_AV,
+		.flags = OBS_OUTPUT_AV | OBS_OUTPUT_ENCODED,
 
 		.get_name = gstreamer_output_get_name,
 		.create = gstreamer_output_create,
 		.destroy = gstreamer_output_destroy,
 		.start = gstreamer_output_start,
 		.stop = gstreamer_output_stop,
-
-		.raw_video = gstreamer_output_raw_video,
-		.raw_audio = gstreamer_output_raw_audio,
 
 		.encoded_packet = gstreamer_output_encoded_packet,
 	};

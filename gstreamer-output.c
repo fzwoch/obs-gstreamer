@@ -1,6 +1,6 @@
 /*
  * obs-gstreamer. OBS Studio plugin.
- * Copyright (C) 2018-2020 Florian Zwoch <fzwoch@gmail.com>
+ * Copyright (C) 2018-2021 Florian Zwoch <fzwoch@gmail.com>
  *
  * This file is part of obs-gstreamer.
  *
@@ -20,8 +20,12 @@
 
 #include <obs/obs-module.h>
 #include <gst/gst.h>
+#include <gst/app/app.h>
 
 typedef struct {
+	GstElement *pipe;
+	GstElement *video;
+	GstElement *audio;
 	obs_output_t *output;
 	obs_data_t *settings;
 } data_t;
@@ -46,29 +50,99 @@ void gstreamer_output_destroy(void *data)
 	g_free(data);
 }
 
-bool gstreamer_output_start(void *data)
+bool gstreamer_output_start(void *p)
 {
+	data_t *data = (data_t *)p;
+
 	g_print("start\n");
+
+	obs_encoder_t *video = obs_output_get_video_encoder(data->output);
+	int32_t w = obs_encoder_get_width(video);
+	int32_t h = obs_encoder_get_height(video);
+
+	obs_encoder_t *audio = obs_output_get_audio_encoder(data->output, 0);
+	int32_t rate = obs_encoder_get_sample_rate(audio);
+
+	g_print("--> %d x %d, %d\n", w, h, rate);
+
+	GError *err = NULL;
+	data->pipe = gst_parse_launch(
+		"appsrc name=video ! video/x-h264, width=960, height=540, stream-format=byte-stream ! h264parse ! matroskamux name=mux ! filesink location=/tmp/out.mkv",
+		&err);
+	if (err) {
+		g_error_free(err);
+		g_free(data);
+
+		return NULL;
+	}
+
+	data->video = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
+	//	data->audio = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
+
+	g_object_set(data->video, "format", GST_FORMAT_TIME, NULL);
+	//	g_object_set(data->audio, "format", GST_FORMAT_TIME, NULL);
+
+	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	if (!obs_output_can_begin_data_capture(data->output, 0))
+		return false;
+	if (!obs_output_initialize_encoders(data->output, 0))
+		return false;
+
+	obs_output_begin_data_capture(data->output, 0);
 
 	return true;
 }
 
-void gstreamer_output_stop(void *data, uint64_t ts)
+void gstreamer_output_stop(void *p, uint64_t ts)
 {
+	data_t *data = (data_t *)p;
+
 	g_print("stop\n");
+
+	obs_output_end_data_capture(data->output);
+
+	if (data->pipe) {
+		gst_app_src_end_of_stream(GST_APP_SRC(data->video));
+		//	gst_app_src_end_of_stream(GST_APP_SRC(data->audio));
+
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		GstMessage *msg = gst_bus_timed_pop_filtered(
+			bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_EOS);
+		gst_message_unref(msg);
+		gst_object_unref(bus);
+
+		gst_object_unref(data->video);
+		//	gst_object_unref(data->audio);
+
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
+		gst_object_unref(data->pipe);
+		data->pipe = NULL;
+	}
 }
 
-void gstreamer_output_raw_video(void *data, struct video_data *frame)
+void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 {
-	g_print("raw_video\n");
-}
+	data_t *data = (data_t *)p;
 
-void gstreamer_output_raw_audio(void *data, struct audio_data *frames)
-{
-	g_print("raw_audio\n");
-}
-
-void gstreamer_output_encoded_packet(void *data, struct encoder_packet *packet)
-{
 	g_print("encoded_packet\n");
+
+	if (packet->type == OBS_ENCODER_AUDIO)
+		return;
+
+	GstBuffer *buffer = gst_buffer_new_allocate(NULL, packet->size, NULL);
+	gst_buffer_fill(buffer, 0, packet->data, packet->size);
+
+	GST_BUFFER_PTS(buffer) = packet->pts * GST_SECOND /
+				 (packet->timebase_den / packet->timebase_num);
+	GST_BUFFER_DTS(buffer) = packet->dts * GST_SECOND /
+				 (packet->timebase_den / packet->timebase_num);
+
+	gst_buffer_set_flags(buffer,
+			     packet->keyframe ? 0 : GST_BUFFER_FLAG_DELTA_UNIT);
+
+	GstElement *appsrc = packet->type == OBS_ENCODER_VIDEO ? data->video
+							       : data->audio;
+
+	gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer);
 }
