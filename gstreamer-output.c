@@ -56,19 +56,22 @@ bool gstreamer_output_start(void *p)
 
 	g_print("start\n");
 
-	obs_encoder_t *video = obs_output_get_video_encoder(data->output);
-	int32_t w = obs_encoder_get_width(video);
-	int32_t h = obs_encoder_get_height(video);
+	struct obs_video_info ovi;
+	obs_get_video_info(&ovi);
 
-	obs_encoder_t *audio = obs_output_get_audio_encoder(data->output, 0);
-	int32_t rate = obs_encoder_get_sample_rate(audio);
-
-	g_print("--> %d x %d, %d\n", w, h, rate);
+	struct obs_audio_info oai;
+	obs_get_audio_info(&oai);
 
 	GError *err = NULL;
-	data->pipe = gst_parse_launch(
-		"appsrc name=video ! video/x-h264, width=960, height=540, stream-format=byte-stream ! h264parse ! matroskamux name=mux ! filesink location=/tmp/out.mkv",
-		&err);
+
+	gchar *pipe = g_strdup_printf(
+		"appsrc name=video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse ! queue ! matroskamux name=mux ! filesink location=/tmp/out.mkv "
+		"appsrc name=audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse ! queue ! mux.",
+		ovi.output_width, ovi.output_height, oai.samples_per_sec,
+		oai.speakers);
+
+	data->pipe = gst_parse_launch(pipe, &err);
+	g_free(pipe);
 	if (err) {
 		g_error_free(err);
 		g_free(data);
@@ -77,10 +80,10 @@ bool gstreamer_output_start(void *p)
 	}
 
 	data->video = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
-	//	data->audio = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
+	data->audio = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
 
 	g_object_set(data->video, "format", GST_FORMAT_TIME, NULL);
-	//	g_object_set(data->audio, "format", GST_FORMAT_TIME, NULL);
+	g_object_set(data->audio, "format", GST_FORMAT_TIME, NULL);
 
 	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
@@ -104,7 +107,7 @@ void gstreamer_output_stop(void *p, uint64_t ts)
 
 	if (data->pipe) {
 		gst_app_src_end_of_stream(GST_APP_SRC(data->video));
-		//	gst_app_src_end_of_stream(GST_APP_SRC(data->audio));
+		gst_app_src_end_of_stream(GST_APP_SRC(data->audio));
 
 		GstBus *bus = gst_element_get_bus(data->pipe);
 		GstMessage *msg = gst_bus_timed_pop_filtered(
@@ -113,7 +116,7 @@ void gstreamer_output_stop(void *p, uint64_t ts)
 		gst_object_unref(bus);
 
 		gst_object_unref(data->video);
-		//	gst_object_unref(data->audio);
+		gst_object_unref(data->audio);
 
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 		gst_object_unref(data->pipe);
@@ -126,9 +129,6 @@ void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 	data_t *data = (data_t *)p;
 
 	g_print("encoded_packet\n");
-
-	if (packet->type == OBS_ENCODER_AUDIO)
-		return;
 
 	GstBuffer *buffer = gst_buffer_new_allocate(NULL, packet->size, NULL);
 	gst_buffer_fill(buffer, 0, packet->data, packet->size);
