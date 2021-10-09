@@ -526,6 +526,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "ntp_server", "");
 	obs_data_set_default_int(settings, "ntp_port", 123);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
+	obs_data_set_default_bool(settings, "block_video", false);
+	obs_data_set_default_bool(settings, "block_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
