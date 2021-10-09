@@ -19,7 +19,6 @@
  */
 
 #include <obs/obs-module.h>
-#include <obs/obs-frontend-api.h>
 #include <gst/gst.h>
 
 extern const char *obs_gstreamer_version;
