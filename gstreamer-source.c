@@ -23,9 +23,11 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
+#include <gst/net/gstnet.h>
 
 typedef struct {
 	GstElement *pipe;
+	GstClock *clock;
 	obs_source_t *source;
 	obs_data_t *settings;
 	gint64 frame_count;
@@ -57,7 +59,9 @@ static gboolean start_pipe(gpointer user_data)
 	gst_object_unref(bus);
 
 	gst_object_unref(data->pipe);
+	gst_object_unref(data->clock);
 	data->pipe = NULL;
+	data->clock = NULL;
 
 	create_pipeline(data);
 
@@ -388,6 +392,29 @@ static void create_pipeline(data_t *data)
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);
 	gst_object_unref(bus);
+
+	// set clock
+	gchar *server = obs_data_get_string(data->settings, "ntp_server");
+	if(strlen(server)>0) {
+		gint clock_port = obs_data_get_int(data->settings, "ntp_port");
+		data->clock = gst_ntp_clock_new ("net_clock", server, clock_port, 0);
+		blog(LOG_INFO, "Connect to NTP server %s", server);
+		if (data->clock == NULL) {
+			blog(LOG_ERROR, "Failed to connect to net clock %s", server);
+			return;
+		}
+		if(!gst_clock_wait_for_sync (data->clock, 5 * GST_SECOND)){
+			blog(LOG_ERROR, "Failed to sync to net clock %s, timeout", server);
+			return;
+		}
+		gst_pipeline_use_clock (GST_PIPELINE (data->pipe), GST_CLOCK(data->clock));
+	}
+	gint latency = obs_data_get_int(data->settings, "latency");
+	// set latency
+	if(latency) {
+		gst_pipeline_set_latency (GST_PIPELINE (data->pipe), latency * GST_MSECOND);
+		blog(LOG_INFO, "Set latency for pipeline %d", gst_pipeline_get_latency(GST_PIPELINE(data->pipe)));
+	}
 }
 
 static gpointer _start(gpointer user_data)
@@ -414,7 +441,9 @@ static gpointer _start(gpointer user_data)
 		gst_object_unref(bus);
 
 		gst_object_unref(data->pipe);
+		gst_object_unref(data->clock);
 		data->pipe = NULL;
+		data->clock = NULL;
 	}
 
 	g_main_loop_unref(data->loop);
@@ -493,9 +522,10 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
+	obs_data_set_default_int(settings, "latency", 0);
+	obs_data_set_default_string(settings, "ntp_server", "");
+	obs_data_set_default_int(settings, "ntp_port", 123);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
-	obs_data_set_default_bool(settings, "block_video", false);
-	obs_data_set_default_bool(settings, "block_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
@@ -550,6 +580,16 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
+	prop = obs_properties_add_int(props, "latency", "Fixed latency (ms)",
+						 0, 10000, 10);
+	obs_property_set_long_description(
+		prop,
+		"This sets a fixed latency for the chain for syncing different inputs. Check the error log if the set latency is too low. 0 = auto");
+	prop = obs_properties_add_text(props, "ntp_server", "NTP server", OBS_TEXT_DEFAULT);
+	obs_property_set_long_description(
+		prop,
+		"This sets a NTP server for syncing the gstreamer clock to. Use e.g. with rtspsrc rfc7273-sync or ntp-sync options. Leave empty to not use a NTP server.");
+	obs_properties_add_int(props, "ntp_port", "NTP server port", 1, 65536, 1);
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
 				   data);
 
