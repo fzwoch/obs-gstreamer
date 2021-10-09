@@ -98,10 +98,14 @@ int main()
     }
 
     obs_source_t *source = obs_source_create("gstreamer-source", "source", NULL, NULL);
+    obs_source_t *filter_video = obs_source_create("gstreamer-filter-video", "video filter", NULL, NULL);
+    obs_source_t *filter_audio = obs_source_create("gstreamer-filter-audio", "audio filter", NULL, NULL);
     obs_encoder_t *encoder_video = obs_video_encoder_create("gstreamer-encoder", "encoder_video", NULL, NULL);
     obs_encoder_t *encoder_audio = obs_audio_encoder_create("ffmpeg_aac", "encoder_audio", NULL, 0, NULL);
     obs_output_t *output = obs_output_create("gstreamer-output", "output", NULL, NULL);
 
+    obs_source_filter_add(source, filter_video);
+    obs_source_filter_add(source, filter_audio);
     obs_set_output_source(0, source);
     obs_encoder_set_video(encoder_video, obs_get_video());
     obs_encoder_set_audio(encoder_audio, obs_get_audio());
@@ -118,6 +122,8 @@ int main()
     obs_output_release(output);
     obs_encoder_release(encoder_video);
     obs_encoder_release(encoder_audio);
+    obs_source_release(filter_video);
+    obs_source_release(filter_audio);
     obs_source_release(source);
 
     obs_shutdown();
