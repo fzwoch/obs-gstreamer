@@ -30,6 +30,7 @@ shared_library('obs-gstreamer',
   'gstreamer-source.c',
   'gstreamer-encoder.c',
   'gstreamer-filter.c',
+  'gstreamer-output.c',
   vcs_tag(
     command : ['git', 'rev-parse', '--short', 'HEAD'],
     input : 'version.c.in',
@@ -42,7 +43,10 @@ shared_library('obs-gstreamer',
     dependency('gstreamer-video-1.0'),
     dependency('gstreamer-audio-1.0'),
     dependency('gstreamer-app-1.0'),
+    meson.get_compiler('c').find_library('obs-frontend-api'),
   ],
   install : true,
   install_dir : join_paths(get_option('libdir'), 'obs-plugins'),
+
+  include_directories : '/usr/local/include/obs'
 )

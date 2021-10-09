@@ -19,6 +19,7 @@
  */
 
 #include <obs/obs-module.h>
+#include <obs/obs-frontend-api.h>
 #include <gst/gst.h>
 
 extern const char *obs_gstreamer_version;
@@ -64,6 +65,16 @@ extern struct obs_source_frame *
 gstreamer_filter_filter_video(void *data, struct obs_source_frame *frame);
 struct obs_audio_data *
 gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data);
+
+// gstreamer-output.c
+extern const char *gstreamer_output_get_name(void *type_data);
+extern void *gstreamer_output_create(obs_data_t *settings,
+				     obs_output_t *output);
+extern void gstreamer_output_destroy(void *data);
+extern bool gstreamer_output_start(void *data);
+extern void gstreamer_output_stop(void *data, uint64_t ts);
+extern void gstreamer_output_encoded_packet(void *data,
+					    struct encoder_packet *packet);
 
 bool obs_module_load(void)
 {
@@ -143,6 +154,21 @@ bool obs_module_load(void)
 	};
 
 	obs_register_source(&filter_info_audio);
+
+	struct obs_output_info output_info = {
+		.id = "gstreamer-output",
+		.flags = OBS_OUTPUT_AV | OBS_OUTPUT_ENCODED,
+
+		.get_name = gstreamer_output_get_name,
+		.create = gstreamer_output_create,
+		.destroy = gstreamer_output_destroy,
+		.start = gstreamer_output_start,
+		.stop = gstreamer_output_stop,
+
+		.encoded_packet = gstreamer_output_encoded_packet,
+	};
+
+	obs_register_output(&output_info);
 
 	gst_init(NULL, NULL);
 
