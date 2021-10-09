@@ -344,6 +344,9 @@ static void create_pipeline(data_t *data)
 	if (obs_data_get_bool(data->settings, "disable_async_appsink_video"))
 		g_object_set(appsink, "async", FALSE, NULL);
 
+	if (obs_data_get_bool(data->settings, "block_video"))
+		g_object_set(appsink, "max-buffers", 1, NULL);
+
 	// check if connected and remove if not
 	GstElement *sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
 	GstPad *pad = gst_element_get_static_pad(sink, "sink");
@@ -365,6 +368,9 @@ static void create_pipeline(data_t *data)
 
 	if (obs_data_get_bool(data->settings, "disable_async_appsink_audio"))
 		g_object_set(appsink, "async", FALSE, NULL);
+
+	if (obs_data_get_bool(data->settings, "block_audio"))
+		g_object_set(appsink, "max-buffers", 1, NULL);
 
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
@@ -488,6 +494,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
+	obs_data_set_default_bool(settings, "block_video", false);
+	obs_data_set_default_bool(settings, "block_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
@@ -535,6 +543,10 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 			       0, 10000, 100);
 	obs_properties_add_bool(props, "stop_on_hide",
 				"Stop pipeline when hidden");
+	obs_properties_add_bool(props, "block_video",
+				"Block video path when sink not fast enough");
+	obs_properties_add_bool(props, "block_audio",
+				"Block audio path when sink not fast enough");
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
