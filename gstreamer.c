@@ -74,6 +74,8 @@ extern bool gstreamer_output_start(void *data);
 extern void gstreamer_output_stop(void *data, uint64_t ts);
 extern void gstreamer_output_encoded_packet(void *data,
 					    struct encoder_packet *packet);
+extern void gstreamer_output_get_defaults(obs_data_t *settings);
+extern obs_properties_t *gstreamer_output_get_properties(void *data);
 
 bool obs_module_load(void)
 {
@@ -165,6 +167,9 @@ bool obs_module_load(void)
 		.stop = gstreamer_output_stop,
 
 		.encoded_packet = gstreamer_output_encoded_packet,
+
+		.get_defaults = gstreamer_output_get_defaults,
+		.get_properties = gstreamer_output_get_properties,
 	};
 
 	obs_register_output(&output_info);

@@ -65,8 +65,8 @@ bool gstreamer_output_start(void *p)
 	GError *err = NULL;
 
 	gchar *pipe = g_strdup_printf(
-		"appsrc name=video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse ! queue ! matroskamux name=mux ! filesink location=/tmp/out.mkv "
-		"appsrc name=audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse ! queue ! mux.",
+		"appsrc name=appsrc_video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse name=video ! queue ! matroskamux name=mux ! filesink location=/tmp/out.mkv "
+		"appsrc name=appsrc_audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse name=audio ! queue ! mux.",
 		ovi.output_width, ovi.output_height, oai.samples_per_sec,
 		oai.speakers);
 
@@ -79,8 +79,8 @@ bool gstreamer_output_start(void *p)
 		return NULL;
 	}
 
-	data->video = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
-	data->audio = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
+	data->video = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc_video");
+	data->audio = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc_audio");
 
 	g_object_set(data->video, "format", GST_FORMAT_TIME, NULL);
 	g_object_set(data->audio, "format", GST_FORMAT_TIME, NULL);
@@ -145,4 +145,23 @@ void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 							       : data->audio;
 
 	gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer);
+}
+
+void gstreamer_output_get_defaults(obs_data_t *settings)
+{
+	obs_data_set_default_string(settings, "pipeline", "");
+}
+
+obs_properties_t *gstreamer_output_get_properties(void *data)
+{
+	obs_properties_t *props = obs_properties_create();
+
+	obs_property_t *prop = obs_properties_add_text(
+		props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
+
+	obs_property_set_long_description(
+		prop,
+		"Use \"video\" and \"audio\" as names for the media sources.");
+
+	return props;
 }
