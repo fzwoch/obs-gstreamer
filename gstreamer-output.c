@@ -54,8 +54,6 @@ bool gstreamer_output_start(void *p)
 {
 	data_t *data = (data_t *)p;
 
-	g_print("start\n");
-
 	struct obs_video_info ovi;
 	obs_get_video_info(&ovi);
 
@@ -101,8 +99,6 @@ void gstreamer_output_stop(void *p, uint64_t ts)
 {
 	data_t *data = (data_t *)p;
 
-	g_print("stop\n");
-
 	obs_output_end_data_capture(data->output);
 
 	if (data->pipe) {
@@ -127,8 +123,6 @@ void gstreamer_output_stop(void *p, uint64_t ts)
 void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 {
 	data_t *data = (data_t *)p;
-
-	g_print("encoded_packet\n");
 
 	GstBuffer *buffer = gst_buffer_new_allocate(NULL, packet->size, NULL);
 	gst_buffer_fill(buffer, 0, packet->data, packet->size);
