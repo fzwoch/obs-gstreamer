@@ -27,6 +27,7 @@
 int main()
 {
     Display *display = XOpenDisplay(NULL);
+    assert(display != NULL);
 
     blog(LOG_INFO, "OBS Version: %s", obs_get_version_string());
 
