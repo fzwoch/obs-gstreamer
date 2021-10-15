@@ -413,7 +413,8 @@ static void create_pipeline(data_t *data)
 	// set latency
 	if(latency) {
 		gst_pipeline_set_latency (GST_PIPELINE (data->pipe), latency * GST_MSECOND);
-		blog(LOG_INFO, "Set latency for pipeline %d", gst_pipeline_get_latency(GST_PIPELINE(data->pipe)));
+		gint cur_latency = gst_pipeline_get_latency(GST_PIPELINE(data->pipe)) / GST_MSECOND;
+		blog(LOG_INFO, "Set latency for pipeline to %dms", cur_latency);
 	}
 }
 
@@ -586,11 +587,11 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 						 0, 10000, 10);
 	obs_property_set_long_description(
 		prop,
-		"This sets a fixed latency for the chain for syncing different inputs. Check the error log if the set latency is too low. 0 = auto");
+		"This sets a fixed latency for the chain for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given chain.");
 	prop = obs_properties_add_text(props, "ntp_server", "NTP server", OBS_TEXT_DEFAULT);
 	obs_property_set_long_description(
 		prop,
-		"This sets a NTP server for syncing the gstreamer clock to. Use e.g. with rtspsrc rfc7273-sync or ntp-sync options. Leave empty to not use a NTP server.");
+		"This sets a NTP server for syncing the gstreamer clock to.\nUse e.g. with rtspsrc rfc7273-sync or ntp-sync options.\nLeave empty to not use a NTP server.");
 	obs_properties_add_int(props, "ntp_port", "NTP server port", 1, 65536, 1);
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
 				   data);
