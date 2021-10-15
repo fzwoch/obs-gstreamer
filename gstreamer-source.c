@@ -103,8 +103,13 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 		break;
 	case GST_MESSAGE_WARNING: {
 		GError *err;
-		gst_message_parse_warning(message, &err, NULL);
+ 		gchar *debug = NULL;
+		gst_message_parse_warning(message, &err, &debug);
 		blog(LOG_WARNING, "%s", err->message);
+ 		if(debug != NULL) {
+			blog(LOG_WARNING, "Additional debug info:\n%s\n", debug);
+ 			g_free (debug);
+ 		}
 		g_error_free(err);
 	} break;
 	default:
