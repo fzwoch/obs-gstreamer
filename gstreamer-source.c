@@ -399,7 +399,7 @@ static void create_pipeline(data_t *data)
 	gst_object_unref(bus);
 
 	// set clock
-	gchar *server = obs_data_get_string(data->settings, "ntp_server");
+  const char *server = obs_data_get_string(data->settings, "ntp_server");
 	if(strlen(server)>0) {
 		gint clock_port = obs_data_get_int(data->settings, "ntp_port");
 		data->clock = gst_ntp_clock_new ("net_clock", server, clock_port, 0);
