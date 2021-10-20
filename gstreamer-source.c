@@ -59,7 +59,7 @@ static gboolean start_pipe(gpointer user_data)
 	gst_object_unref(bus);
 
 	gst_object_unref(data->pipe);
-	gst_object_unref(data->clock);
+	if(data->clock != NULL) gst_object_unref(data->clock);
 	data->pipe = NULL;
 	data->clock = NULL;
 
@@ -447,7 +447,7 @@ static gpointer _start(gpointer user_data)
 		gst_object_unref(bus);
 
 		gst_object_unref(data->pipe);
-		gst_object_unref(data->clock);
+		if(data->clock != NULL) gst_object_unref(data->clock);
 		data->pipe = NULL;
 		data->clock = NULL;
 	}
