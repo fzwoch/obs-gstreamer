@@ -27,6 +27,11 @@ run-time installed via [Macports].
 Experimental prebuilt Linux plugin is available. You still require the GStreamer
 run-time installed via your Linux ditribution's package manager.
 
+Linux plugins can be installed in locations that follow this scheme:
+```
+~/.config/obs-studio/plugins/<pluginname>/bin/64bit/<.so-file>
+```
+
 [OBS Studio]: https://obsproject.com/
 [GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
 [Macports]: https://www.macports.org/
