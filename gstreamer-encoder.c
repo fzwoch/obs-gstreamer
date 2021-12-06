@@ -392,38 +392,3 @@ bool gstreamer_encoder_get_extra_data(void *p, uint8_t **extra_data,
 
 	return true;
 }
-
-bool gstreamer_encoder_update(void *p, obs_data_t *settings)
-{
-	data_t *data = (data_t *)p;
-
-	if (data->pipe == NULL)
-		return true;
-
-	GstElement *encoder =
-		gst_bin_get_by_name(GST_BIN(data->pipe), "video_encoder");
-
-	if (encoder == NULL)
-		return false;
-
-	const gchar *encoder_type =
-		obs_data_get_string(data->settings, "encoder_type");
-
-	if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
-		g_object_set(encoder, "target-bitrate",
-			     obs_data_get_int(data->settings, "bitrate") * 1000,
-			     NULL);
-	} else if (g_strcmp0(encoder_type, "omxh264enc_old") == 0) {
-		g_object_set(encoder, "bitrate",
-			     obs_data_get_int(data->settings, "bitrate") * 1000,
-			     NULL);
-	} else {
-		g_object_set(encoder, "bitrate",
-			     obs_data_get_int(data->settings, "bitrate"), NULL);
-	}
-
-	g_object_set(encoder, "bitrate", 0, NULL);
-	gst_object_unref(encoder);
-
-	return true;
-}
