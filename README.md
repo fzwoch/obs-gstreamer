@@ -34,7 +34,7 @@ run-time installed via your Linux ditribution's package manager.
 
 Linux plugins can be installed in locations that follow this scheme:
 ```
-~/.config/obs-studio/plugins/<pluginname>/bin/64bit/<pluginname.so>
+~/.config/obs-studio/plugins/<pluginname>/bin/64bit/<pluginname>.so
 ```
 
 [OBS Studio]: https://obsproject.com/
