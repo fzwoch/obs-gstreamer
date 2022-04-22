@@ -52,6 +52,9 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 
 	obs_get_video_info(&data->ovi);
 
+	data->ovi.output_width = obs_encoder_get_width(encoder);
+	data->ovi.output_height = obs_encoder_get_height(encoder);
+
 	switch (data->ovi.output_format) {
 	case VIDEO_FORMAT_I420:
 		format = "I420";
