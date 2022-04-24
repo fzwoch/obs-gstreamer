@@ -78,7 +78,12 @@ extern obs_properties_t *gstreamer_output_get_properties(void *data);
 
 bool obs_module_load(void)
 {
-	blog(LOG_INFO, "obs-gstreamer build: %s", obs_gstreamer_version);
+	guint major, minor, micro, nano;
+
+	gst_version(&major, &minor, &micro, &nano);
+
+	blog(LOG_INFO, "obs-gstreamer build: %s, gst-runtime: %u.%u.%u",
+	     obs_gstreamer_version, major, minor, micro);
 
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
