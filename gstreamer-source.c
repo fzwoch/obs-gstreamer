@@ -494,8 +494,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 		settings, "pipeline",
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 		"audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio.");
-	obs_data_set_default_bool(settings, "use_timestamps_video", false);
-	obs_data_set_default_bool(settings, "use_timestamps_audio", false);
+	obs_data_set_default_bool(settings, "use_timestamps_video", true);
+	obs_data_set_default_bool(settings, "use_timestamps_audio", true);
 	obs_data_set_default_bool(settings, "sync_appsink_video", true);
 	obs_data_set_default_bool(settings, "sync_appsink_audio", true);
 	obs_data_set_default_bool(settings, "disable_async_appsink_video",
