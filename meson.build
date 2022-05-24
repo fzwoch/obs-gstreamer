@@ -25,6 +25,11 @@ if not obs_dep.found()
   obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
 endif
 
+name_suffix = []
+if host_machine.system() == 'darwin'
+  name_suffix = 'so'
+endif
+
 shared_library('obs-gstreamer',
   'gstreamer.c',
   'gstreamer-source.c',
@@ -37,6 +42,7 @@ shared_library('obs-gstreamer',
     output : 'version.c',
   ),
   name_prefix : '',
+  name_suffix : name_suffix,
   dependencies : [
     obs_dep,
     dependency('gstreamer-1.0', version : '>=1.16.0'),
