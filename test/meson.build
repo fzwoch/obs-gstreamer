@@ -28,10 +28,6 @@ executable('obs',
     'main.c',
     dependencies : [
         dependency('libobs'),
-        dependency('x11'),
-        dependency('egl'),
-    ],
-    link_args : [
-        '-Wl,--no-as-needed'
+        dependency('wayland-client'),
     ],
 )
