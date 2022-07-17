@@ -18,11 +18,7 @@
 # along with obs-gstreamer. If not, see <http://www.gnu.org/licenses/>.
 #
 
-project('obs', 'c',
-    default_options : [
-        'b_asneeded=false',
-    ],
-)
+project('obs', 'c')
 
 executable('obs',
     'main.c',
