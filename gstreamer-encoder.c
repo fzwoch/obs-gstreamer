@@ -41,6 +41,27 @@ const char *gstreamer_encoder_get_name(void *type_data)
 	return "GStreamer Encoder";
 }
 
+char* gstreamer_encoder_get_codec_type(char* encoder_string)
+{
+  char* codec_type;
+  char* loc_first_space = strstr(encoder_string, " ");
+  char* h264_in_string = strstr(encoder_string, "h264");
+  char* h265_in_string = strstr(encoder_string, "h265");
+  
+  if ((h264_in_string != NULL) &&
+      (h264_in_string < loc_first_space)) {
+    codec_type = "h264";
+  } else if ((h265_in_string != NULL) &&
+	     (h265_in_string < loc_first_space)) {
+    codec_type = "h265";
+  } else {
+    blog(LOG_ERROR, "cannot determine codec type: %s\n",
+	                                encoder_string);
+    codec_type = NULL;
+  }
+  return codec_type;
+}
+
 void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 {
 	data_t *data = g_new0(data_t, 1);
@@ -142,6 +163,13 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "vaapih265enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"vaapih265enc bitrate=%d rate-control=%s keyframe-period=%d",
+			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "omxh264enc") == 0) {
 		encoder_string = g_strdup_printf(
 			"omxh264enc target-bitrate=%d control-rate=%s periodicity-idr=%d",
@@ -167,11 +195,16 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 		return NULL;
 	}
 
+	char* codec_type = gstreamer_encoder_get_codec_type(encoder_string);
+	  
 	gchar *pipe_string = g_strdup_printf(
-		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s name=video_encoder  %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s name=video_encoder  %s ! %sparse ! video/x-%s, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
 		data->ovi.fps_num, data->ovi.fps_den, encoder_string,
-		obs_data_get_string(data->settings, "extra_options"));
+		obs_data_get_string(data->settings, "extra_options"),
+		codec_type, codec_type);
+
+	blog(0, pipe_string);
 
 	GError *err = NULL;
 
@@ -344,7 +377,9 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 		obs_property_list_add_string(prop, "NVIDIA (NVENC)",
 					     "nvh264enc");
 	if (check_feature("vaapih264enc"))
-		obs_property_list_add_string(prop, "VA-API", "vaapih264enc");
+		obs_property_list_add_string(prop, "VA-API H.264", "vaapih264enc");
+	if (check_feature("vaapih265enc"))
+		obs_property_list_add_string(prop, "VA-API H.265", "vaapih265enc");
 	if (check_feature("omxh264enc"))
 		obs_property_list_add_string(prop, "OpenMAX (Raspberry Pi)",
 					     "omxh264enc");

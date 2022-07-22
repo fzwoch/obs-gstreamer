@@ -107,7 +107,7 @@ bool obs_module_load(void)
 	struct obs_encoder_info encoder_info = {
 		.id = "gstreamer-encoder",
 		.type = OBS_ENCODER_VIDEO,
-		.codec = "h264",
+		.codec = "hevc",
 
 		.get_name = gstreamer_encoder_get_name,
 		.create = gstreamer_encoder_create,
