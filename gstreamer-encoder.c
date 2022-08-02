@@ -36,26 +36,20 @@ typedef struct {
 	struct obs_video_info ovi;
 } data_t;
 
-const char *gstreamer_encoder_get_name(void *type_data)
+const char *gstreamer_encoder_get_name_h264(void *type_data)
 {
-	return "GStreamer Encoder";
+	return "GStreamer Encoder h264";
 }
 
-void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
+const char *gstreamer_encoder_get_name_h265(void *type_data)
 {
-	data_t *data = g_new0(data_t, 1);
+	return "GStreamer Encoder h265";
+}
 
-	const char *format = "";
-
-	data->encoder = encoder;
-	data->settings = settings;
-
-	obs_get_video_info(&data->ovi);
-
-	data->ovi.output_width = obs_encoder_get_width(encoder);
-	data->ovi.output_height = obs_encoder_get_height(encoder);
-
-	switch (data->ovi.output_format) {
+char* gstreamer_get_format(data_t* data)
+{
+  char* format;
+  switch (data->ovi.output_format) {
 	case VIDEO_FORMAT_I420:
 		format = "I420";
 		data->buffer_size = data->ovi.output_width *
@@ -108,8 +102,26 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 	default:
 		blog(LOG_ERROR, "unhandled output format: %d\n",
 		     data->ovi.output_format);
-		return NULL;
-	}
+		format = NULL;
+  }
+
+  return format;
+  
+}
+
+void *gstreamer_encoder_create_h264(obs_data_t *settings, obs_encoder_t *encoder)
+{
+	data_t *data = g_new0(data_t, 1);
+
+	data->encoder = encoder;
+	data->settings = settings;
+
+	obs_get_video_info(&data->ovi);
+
+	data->ovi.output_width = obs_encoder_get_width(encoder);
+	data->ovi.output_height = obs_encoder_get_height(encoder);
+
+	const char *format = gstreamer_get_format(data);
 
 	const gchar *encoder_type =
 		obs_data_get_string(data->settings, "encoder_type");
@@ -166,9 +178,71 @@ void *gstreamer_encoder_create(obs_data_t *settings, obs_encoder_t *encoder)
 		blog(LOG_ERROR, "invalid encoder selected");
 		return NULL;
 	}
-
+	  
 	gchar *pipe_string = g_strdup_printf(
 		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s name=video_encoder  %s ! h264parse ! video/x-h264, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
+		format, data->ovi.output_width, data->ovi.output_height,
+		data->ovi.fps_num, data->ovi.fps_den, encoder_string,
+		obs_data_get_string(data->settings, "extra_options"));
+
+	GError *err = NULL;
+
+	data->pipe = gst_parse_launch(pipe_string, &err);
+
+	g_free(encoder_string);
+	g_free(pipe_string);
+
+	if (err != NULL) {
+		blog(LOG_ERROR, "%s", err->message);
+		return NULL;
+	}
+
+	data->appsrc = gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
+	data->appsink = gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
+
+	gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	return data;
+}
+
+void *gstreamer_encoder_create_h265(obs_data_t *settings, obs_encoder_t *encoder)
+{
+	data_t *data = g_new0(data_t, 1);
+
+	data->encoder = encoder;
+	data->settings = settings;
+
+	obs_get_video_info(&data->ovi);
+
+	data->ovi.output_width = obs_encoder_get_width(encoder);
+	data->ovi.output_height = obs_encoder_get_height(encoder);
+
+	const char *format = gstreamer_get_format(data);
+
+	const gchar *encoder_type =
+		obs_data_get_string(data->settings, "encoder_type");
+
+	const gboolean is_cbr =
+		g_strcmp0(obs_data_get_string(data->settings, "rate_control"),
+			  "CBR") == 0
+			? true
+			: false;
+
+	gchar *encoder_string = "";
+	if (g_strcmp0(encoder_type, "vaapih265enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"vaapih265enc bitrate=%d rate-control=%s keyframe-period=%d",
+			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else {
+		blog(LOG_ERROR, "invalid encoder selected");
+		return NULL;
+	}
+	  
+	gchar *pipe_string = g_strdup_printf(
+		"appsrc name=appsrc ! video/x-raw, format=%s, width=%d, height=%d, framerate=%d/%d, interlace-mode=progressive ! videoconvert ! %s name=video_encoder  %s ! h265parse ! video/x-h265, stream-format=byte-stream, alignment=au ! appsink sync=false name=appsink",
 		format, data->ovi.output_width, data->ovi.output_height,
 		data->ovi.fps_num, data->ovi.fps_den, encoder_string,
 		obs_data_get_string(data->settings, "extra_options"));
@@ -307,9 +381,18 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 	return true;
 }
 
-void gstreamer_encoder_get_defaults(obs_data_t *settings)
+void gstreamer_encoder_get_defaults_h264(obs_data_t *settings)
 {
 	obs_data_set_default_string(settings, "encoder_type", "x264");
+	obs_data_set_default_int(settings, "bitrate", 2500);
+	obs_data_set_default_string(settings, "rate_control", "CBR");
+	obs_data_set_default_int(settings, "keyint_sec", 2);
+	obs_data_set_default_bool(settings, "force_copy", false);
+}
+
+void gstreamer_encoder_get_defaults_h265(obs_data_t *settings)
+{
+	obs_data_set_default_string(settings, "encoder_type", "vaapih265enc");
 	obs_data_set_default_int(settings, "bitrate", 2500);
 	obs_data_set_default_string(settings, "rate_control", "CBR");
 	obs_data_set_default_int(settings, "keyint_sec", 2);
@@ -329,7 +412,7 @@ static bool check_feature(char *name)
 	return false;
 }
 
-obs_properties_t *gstreamer_encoder_get_properties(void *data)
+obs_properties_t *gstreamer_encoder_get_properties_h264(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
@@ -365,6 +448,51 @@ obs_properties_t *gstreamer_encoder_get_properties(void *data)
 
 	obs_property_list_add_string(prop, "Constant bitrate", "CBR");
 	obs_property_list_add_string(prop, "Variable bitrate", "VBR");
+	obs_property_list_add_string(prop, "Constant QP", "CQP");
+	obs_property_list_add_string(prop, "Constant QP - Intelligent", "ICQ");
+	obs_property_list_add_string(prop, "Variable bitrate - Quality defined", "QVBR");
+
+	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
+				      0, 20, 1);
+	//	obs_property_int_set_suffix(prop, " seconds");
+
+	prop = obs_properties_add_text(props, "extra_options",
+				       "Extra encoder options",
+				       OBS_TEXT_MULTILINE);
+	obs_property_set_long_description(
+		prop,
+		"Extra encoder options. Use the form of key=value separated by spaces.");
+
+	obs_properties_add_bool(props, "force_copy", "Force memory copy");
+
+	return props;
+}
+
+obs_properties_t *gstreamer_encoder_get_properties_h265(void *data)
+{
+	obs_properties_t *props = obs_properties_create();
+
+	obs_property_t *prop = obs_properties_add_list(props, "encoder_type",
+						       "Encoder type",
+						       OBS_COMBO_TYPE_LIST,
+						       OBS_COMBO_FORMAT_STRING);
+
+	if (check_feature("vaapih265enc"))
+		obs_property_list_add_string(prop, "VA-API", "vaapih265enc");
+
+	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
+				      50);
+	//	obs_property_int_set_suffix(prop, " Kbps");
+
+	prop = obs_properties_add_list(props, "rate_control", "Rate control",
+				       OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_STRING);
+
+	obs_property_list_add_string(prop, "Constant bitrate", "CBR");
+	obs_property_list_add_string(prop, "Variable bitrate", "VBR");
+	obs_property_list_add_string(prop, "Constant QP", "CQP");
+	obs_property_list_add_string(prop, "Constant QP - Intelligent", "ICQ");
+	obs_property_list_add_string(prop, "Variable bitrate - Quality defined", "QVBR");
 
 	prop = obs_properties_add_int(props, "keyint_sec", "Keyframe interval",
 				      0, 20, 1);

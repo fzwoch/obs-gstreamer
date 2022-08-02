@@ -37,15 +37,20 @@ extern void gstreamer_source_show(void *data);
 extern void gstreamer_source_hide(void *data);
 
 // gstreamer-encoder.c
-extern const char *gstreamer_encoder_get_name(void *type_data);
-extern void *gstreamer_encoder_create(obs_data_t *settings,
-				      obs_encoder_t *encoder);
+extern const char *gstreamer_encoder_get_name_h264(void *type_data);
+extern const char *gstreamer_encoder_get_name_h265(void *type_data);
+extern void *gstreamer_encoder_create_h264(obs_data_t *settings,
+					   obs_encoder_t *encoder);
+extern void *gstreamer_encoder_create_h265(obs_data_t *settings,
+					   obs_encoder_t *encoder);
 extern void gstreamer_encoder_destroy(void *data);
 extern bool gstreamer_encoder_encode(void *data, struct encoder_frame *frame,
 				     struct encoder_packet *packet,
 				     bool *received_packet);
-extern void gstreamer_encoder_get_defaults(obs_data_t *settings);
-extern obs_properties_t *gstreamer_encoder_get_properties(void *data);
+extern void gstreamer_encoder_get_defaults_h264(obs_data_t *settings);
+extern void gstreamer_encoder_get_defaults_h265(obs_data_t *settings);
+extern obs_properties_t *gstreamer_encoder_get_properties_h264(void *data);
+extern obs_properties_t *gstreamer_encoder_get_properties_h265(void *data);
 extern bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
 					     size_t *size);
 
@@ -104,24 +109,43 @@ bool obs_module_load(void)
 
 	obs_register_source(&source_info);
 
-	struct obs_encoder_info encoder_info = {
-		.id = "gstreamer-encoder",
+	struct obs_encoder_info encoder_info_h264 = {
+		.id = "gstreamer-encoder-h264",
 		.type = OBS_ENCODER_VIDEO,
 		.codec = "h264",
 
-		.get_name = gstreamer_encoder_get_name,
-		.create = gstreamer_encoder_create,
+		.get_name = gstreamer_encoder_get_name_h264,
+		.create = gstreamer_encoder_create_h264,
 		.destroy = gstreamer_encoder_destroy,
 
 		.encode = gstreamer_encoder_encode,
 
-		.get_defaults = gstreamer_encoder_get_defaults,
-		.get_properties = gstreamer_encoder_get_properties,
+		.get_defaults = gstreamer_encoder_get_defaults_h264,
+		.get_properties = gstreamer_encoder_get_properties_h264,
 
 		.get_extra_data = gstreamer_encoder_get_extra_data,
 	};
 
-	obs_register_encoder(&encoder_info);
+	obs_register_encoder(&encoder_info_h264);
+
+	struct obs_encoder_info encoder_info_h265 = {
+		.id = "gstreamer-encoder-h265",
+		.type = OBS_ENCODER_VIDEO,
+		.codec = "hevc",
+
+		.get_name = gstreamer_encoder_get_name_h265,
+		.create = gstreamer_encoder_create_h265,
+		.destroy = gstreamer_encoder_destroy,
+
+		.encode = gstreamer_encoder_encode,
+
+		.get_defaults = gstreamer_encoder_get_defaults_h265,
+		.get_properties = gstreamer_encoder_get_properties_h265,
+
+		.get_extra_data = gstreamer_encoder_get_extra_data,
+	};
+
+	obs_register_encoder(&encoder_info_h265);
 
 	struct obs_source_info filter_info_video = {
 		.id = "gstreamer-filter-video",
