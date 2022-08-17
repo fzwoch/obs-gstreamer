@@ -448,24 +448,32 @@ static void populate_vaapi_devices(obs_property_t *prop)
 }
 #endif
 
+static bool encoder_modified(obs_properties_t *props, obs_property_t *property,
+			     obs_data_t *settings)
+{
+	obs_property_t *device = obs_properties_get(props, "device");
+
+	if (g_strcmp0(obs_data_get_string(settings, "encoder_type"),
+		      "vaapih264enc") == 0 ||
+	    g_strcmp0(obs_data_get_string(settings, "encoder_type"),
+		      "vaapih265enc") == 0)
+		obs_property_set_visible(device, true);
+	else
+		obs_property_set_visible(device, false);
+
+	return true;
+}
+
 obs_properties_t *gstreamer_encoder_get_properties_h264(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_property_t *prop = obs_properties_add_list(props, "device",
-						       "Device",
+	obs_property_t *prop = obs_properties_add_list(props, "encoder_type",
+						       "Encoder type",
 						       OBS_COMBO_TYPE_LIST,
 						       OBS_COMBO_FORMAT_STRING);
 
-	obs_property_set_long_description(prop, "For VAAPI only");
-
-#ifdef __linux__
-	populate_vaapi_devices(prop);
-#endif
-
-	prop = obs_properties_add_list(props, "encoder_type", "Encoder type",
-				       OBS_COMBO_TYPE_LIST,
-				       OBS_COMBO_FORMAT_STRING);
+	obs_property_set_modified_callback(prop, encoder_modified);
 
 	if (check_feature("x264enc"))
 		obs_property_list_add_string(prop, "x264", "x264");
@@ -483,6 +491,16 @@ obs_properties_t *gstreamer_encoder_get_properties_h264(void *data)
 	if (check_feature("vtenc_h264"))
 		obs_property_list_add_string(prop, "Apple (VideoToolBox)",
 					     "vtenc_h264");
+
+	prop = obs_properties_add_list(props, "device", "Device",
+				       OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_STRING);
+
+	obs_property_set_long_description(prop, "For VAAPI only");
+
+#ifdef __linux__
+	populate_vaapi_devices(prop);
+#endif
 
 	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
 				      50);
@@ -526,6 +544,16 @@ obs_properties_t *gstreamer_encoder_get_properties_h265(void *data)
 
 	if (check_feature("vaapih265enc"))
 		obs_property_list_add_string(prop, "VA-API", "vaapih265enc");
+
+	prop = obs_properties_add_list(props, "device", "Device",
+				       OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_STRING);
+
+	obs_property_set_long_description(prop, "For VAAPI only");
+
+#ifdef __linux__
+	populate_vaapi_devices(prop);
+#endif
 
 	prop = obs_properties_add_int(props, "bitrate", "Bitrate", 50, 10000000,
 				      50);
