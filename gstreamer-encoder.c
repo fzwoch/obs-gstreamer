@@ -259,7 +259,7 @@ void *gstreamer_encoder_create_h265(obs_data_t *settings,
 			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
-	} else if (g_strcmp0(encoder_type, "msdkh264enc") == 0) {
+	} else if (g_strcmp0(encoder_type, "msdkh265enc") == 0) {
 	    encoder_string = g_strdup_printf(
 			"msdkh265enc bitrate=%d rate-control=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
