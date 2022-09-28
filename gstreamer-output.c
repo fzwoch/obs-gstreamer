@@ -63,10 +63,11 @@ bool gstreamer_output_start(void *p)
 	GError *err = NULL;
 
 	gchar *pipe = g_strdup_printf(
-		"appsrc name=appsrc_video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse name=video ! queue ! matroskamux name=mux ! filesink location=/tmp/out.mkv "
-		"appsrc name=appsrc_audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse name=audio ! queue ! mux.",
+		"appsrc name=appsrc_video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse name=video "
+		"appsrc name=appsrc_audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse name=audio "
+		"%s",
 		ovi.output_width, ovi.output_height, oai.samples_per_sec,
-		oai.speakers);
+		oai.speakers, obs_data_get_string(data->settings, "pipeline"));
 
 	data->pipe = gst_parse_launch(pipe, &err);
 	g_free(pipe);
@@ -143,7 +144,9 @@ void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 
 void gstreamer_output_get_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_string(settings, "pipeline", "");
+	obs_data_set_default_string(
+		settings, "pipeline",
+		"video. ! matroskamux name=mux ! fakesink audio. ! mux.");
 }
 
 obs_properties_t *gstreamer_output_get_properties(void *data)
