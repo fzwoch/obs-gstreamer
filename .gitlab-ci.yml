@@ -83,8 +83,6 @@ macos:
 
     - meson --buildtype release --cross-file cross.txt macos
     - ninja -C macos
-
-    - mv macos/obs-gstreamer.dylib macos/obs-gstreamer.so
   artifacts:
     paths:
       - macos/obs-gstreamer.so
@@ -112,8 +110,6 @@ macos:
 
     - meson --buildtype release --cross-file cross.txt macos-aarch64
     - ninja -C macos-aarch64
-
-    - mv macos-aarch64/obs-gstreamer.dylib macos-aarch64/obs-gstreamer.so
   artifacts:
     paths:
       - macos-aarch64/obs-gstreamer.so

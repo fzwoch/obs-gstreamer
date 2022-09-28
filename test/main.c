@@ -21,17 +21,17 @@
 #include <stdio.h>
 #include <obs/obs.h>
 #include <obs/obs-nix-platform.h>
-#include <X11/Xlib.h>
+#include <wayland-client.h>
 #include <assert.h>
 
 int main()
 {
-    Display *display = XOpenDisplay(NULL);
+    struct wl_display *display = wl_display_connect(NULL);
     assert(display != NULL);
 
     blog(LOG_INFO, "OBS Version: %s", obs_get_version_string());
 
-    obs_set_nix_platform(OBS_NIX_PLATFORM_X11_EGL);
+    obs_set_nix_platform(OBS_NIX_PLATFORM_WAYLAND);
     obs_set_nix_platform_display(display);
 
     obs_startup("en-US", NULL, NULL);
@@ -129,7 +129,7 @@ int main()
 
     obs_shutdown();
 
-    XCloseDisplay(display);
+    wl_display_disconnect(display);
 
     return 0;
 }

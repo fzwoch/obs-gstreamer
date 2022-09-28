@@ -202,6 +202,20 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 	case GST_VIDEO_FORMAT_YVYU:
 		frame.format = VIDEO_FORMAT_YVYU;
 		break;
+#ifdef GST_VIDEO_FORMAT_I420_10LE
+	case GST_VIDEO_FORMAT_I420_10LE:
+		frame.format = VIDEO_FORMAT_I010;
+		break;
+	case GST_VIDEO_FORMAT_P010_10LE:
+		frame.format = VIDEO_FORMAT_P010;
+		break;
+	case GST_VIDEO_FORMAT_I422_10LE:
+		frame.format = VIDEO_FORMAT_I210;
+		break;
+	case GST_VIDEO_FORMAT_Y444_12LE:
+		frame.format = VIDEO_FORMAT_I412;
+		break;
+#endif
 	default:
 		frame.format = VIDEO_FORMAT_NONE;
 		blog(LOG_ERROR, "Unknown video format: %s",
@@ -324,7 +338,11 @@ static void create_pipeline(data_t *data)
 	GError *err = NULL;
 
 	gchar *pipeline = g_strdup_printf(
+#ifdef GST_VIDEO_FORMAT_I420_10LE
+		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY,I420_10LE,P010_10LE,I420_12LE,Y444_12LE} ! appsink name=video_appsink "
+#else
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
+#endif
 		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8}, layout=interleaved ! appsink name=audio_appsink "
 		"%s",
 		obs_data_get_string(data->settings, "pipeline"));
@@ -517,8 +535,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 		settings, "pipeline",
 		"videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 		"audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio.");
-	obs_data_set_default_bool(settings, "use_timestamps_video", false);
-	obs_data_set_default_bool(settings, "use_timestamps_audio", false);
+	obs_data_set_default_bool(settings, "use_timestamps_video", true);
+	obs_data_set_default_bool(settings, "use_timestamps_audio", true);
 	obs_data_set_default_bool(settings, "sync_appsink_video", true);
 	obs_data_set_default_bool(settings, "sync_appsink_audio", true);
 	obs_data_set_default_bool(settings, "disable_async_appsink_video",

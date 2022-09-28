@@ -15,17 +15,27 @@ This may be interesting for people trying to run OBS Studio to different platfor
 
 This may be handy to quickly get some simple filters in but also complex pipelines are possible as long as no rate or dimension changes are done.
 
+4. An OBS Studio audio filter plugin to use GStreamer pipelines as audio filters in [OBS Studio].
+
+This may be handy to quickly get some simple filters in but also complex pipelines are possible as long as no rate or dimension changes are done.
+
 Prebuilt
 ---
 
 Experimental prebuilt 64-bit Windows plugin is available. You still require the
-official [GStreamer run-time] (MinGW version) to be installed.
+official [GStreamer run-time] (MinGW version) to be installed. Make sure the
+run-time `bin` path is added to Windows's `PATH` environment.
 
 Experimental prebuilt macOS plugin available. You still require the GStreamer
-run-time installed via [Macports].
+run-time installed via [Macports] (not Homebrew).
 
 Experimental prebuilt Linux plugin is available. You still require the GStreamer
 run-time installed via your Linux ditribution's package manager.
+
+Linux plugins can be installed in locations that follow this scheme:
+```
+~/.config/obs-studio/plugins/<pluginname>/bin/64bit/<pluginname>.so
+```
 
 [OBS Studio]: https://obsproject.com/
 [GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
