@@ -498,6 +498,9 @@ void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 	g_mutex_init(&data->mutex);
 	g_cond_init(&data->cond);
 
+	if (obs_data_get_bool(settings, "no_buffer") == true)
+		obs_source_set_async_unbuffered(source, true);
+
 	if (obs_data_get_bool(settings, "stop_on_hide") == false)
 		start(data);
 
@@ -546,6 +549,7 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
+	obs_data_set_default_bool(settings, "no_buffer", false);
 	obs_data_set_default_int(settings, "latency", 0);
 	obs_data_set_default_string(settings, "ntp_server", "");
 	obs_data_set_default_int(settings, "ntp_port", 123);
@@ -606,6 +610,9 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
+	obs_properties_add_bool(
+		props, "no_buffer",
+		"Disable buffering on the OBS side");
 	prop = obs_properties_add_int(props, "latency", "Fixed latency (ms)",
 						 0, 10000, 10);
 	obs_property_set_long_description(
