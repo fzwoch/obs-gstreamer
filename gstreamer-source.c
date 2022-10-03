@@ -335,6 +335,9 @@ static gboolean loop_startup(gpointer user_data)
 
 static void create_pipeline(data_t *data)
 {
+	if (obs_data_get_bool(data->settings, "no_buffer") == true)
+		obs_source_set_async_unbuffered(data->source, true);
+
 	GError *err = NULL;
 
 	gchar *pipeline = g_strdup_printf(
@@ -497,9 +500,6 @@ void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 
 	g_mutex_init(&data->mutex);
 	g_cond_init(&data->cond);
-
-	if (obs_data_get_bool(settings, "no_buffer") == true)
-		obs_source_set_async_unbuffered(source, true);
 
 	if (obs_data_get_bool(settings, "stop_on_hide") == false)
 		start(data);
