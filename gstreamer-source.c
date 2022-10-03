@@ -617,7 +617,7 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 						 0, 10000, 10);
 	obs_property_set_long_description(
 		prop,
-		"This sets a fixed latency for the chain for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given chain.");
+		"This sets a fixed latency for the pipeline for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given pipeline.");
 	prop = obs_properties_add_text(props, "ntp_server", "NTP server", OBS_TEXT_DEFAULT);
 	obs_property_set_long_description(
 		prop,
