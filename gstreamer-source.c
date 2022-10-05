@@ -335,9 +335,6 @@ static gboolean loop_startup(gpointer user_data)
 
 static void create_pipeline(data_t *data)
 {
-	if (obs_data_get_bool(data->settings, "no_buffer") == true)
-		obs_source_set_async_unbuffered(data->source, true);
-
 	GError *err = NULL;
 
 	gchar *pipeline = g_strdup_printf(
@@ -377,6 +374,9 @@ static void create_pipeline(data_t *data)
 	if (obs_data_get_bool(data->settings, "block_video"))
 		g_object_set(appsink, "max-buffers", 1, NULL);
 
+	if (obs_data_get_bool(data->settings, "drop_video"))
+		gst_app_sink_set_drop(GST_APP_SINK(appsink), TRUE);
+
 	// check if connected and remove if not
 	GstElement *sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
 	GstPad *pad = gst_element_get_static_pad(sink, "sink");
@@ -401,6 +401,9 @@ static void create_pipeline(data_t *data)
 
 	if (obs_data_get_bool(data->settings, "block_audio"))
 		g_object_set(appsink, "max-buffers", 1, NULL);
+
+	if (obs_data_get_bool(data->settings, "drop_audio"))
+		gst_app_sink_set_drop(GST_APP_SINK(appsink), TRUE);
 
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
@@ -493,6 +496,9 @@ static void start(data_t *data)
 
 void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 {
+	bool nobuf = obs_data_get_bool(settings, "no_buffer");
+	obs_source_set_async_unbuffered(source, nobuf);
+
 	data_t *data = g_new0(data_t, 1);
 
 	data->source = source;
@@ -556,6 +562,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
 	obs_data_set_default_bool(settings, "block_video", false);
 	obs_data_set_default_bool(settings, "block_audio", false);
+	obs_data_set_default_bool(settings, "drop_video", false);
+	obs_data_set_default_bool(settings, "drop_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
@@ -603,16 +611,20 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 			       0, 10000, 100);
 	obs_properties_add_bool(props, "stop_on_hide",
 				"Stop pipeline when hidden");
-	obs_properties_add_bool(props, "block_video",
-				"Block video path when sink not fast enough");
-	obs_properties_add_bool(props, "block_audio",
-				"Block audio path when sink not fast enough");
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
+	obs_properties_add_bool(props, "block_video",
+				"Disable video sink buffer");
+	obs_properties_add_bool(props, "drop_video",
+				"Drop video when sink is not fast enough");
+	obs_properties_add_bool(props, "block_audio",
+				"Disable audio sink buffer");
+	obs_properties_add_bool(props, "drop_audio",
+				"Drop audio when sink is not fast enough");
 	obs_properties_add_bool(
 		props, "no_buffer",
-		"Disable buffering on the OBS side");
+		"Disable buffering in OBS");
 	prop = obs_properties_add_int(props, "latency", "Fixed latency (ms)",
 						 0, 10000, 10);
 	obs_property_set_long_description(
@@ -632,6 +644,9 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 void gstreamer_source_update(void *data, obs_data_t *settings)
 {
 	stop(data);
+
+	bool nobuf = obs_data_get_bool(settings, "no_buffer");
+	obs_source_set_async_unbuffered(((data_t *)data)->source, nobuf);
 
 	// Don't start the pipeline if source is hidden and 'stop_on_hide' is set.
 	// From GUI this is probably irrelevant but works around some quirks when
