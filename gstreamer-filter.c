@@ -143,6 +143,10 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 			data->frame_size = frame->width * frame->height * 3 / 2;
 			format = "NV12";
 			break;
+		case VIDEO_FORMAT_I422:
+			data->frame_size = frame->width * frame->height * 2;
+			format = "Y42B";
+			break;
 
 		case VIDEO_FORMAT_YVYU:
 			data->frame_size = frame->width * frame->height * 2;
@@ -170,7 +174,8 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 			format = "BGRx";
 			break;
 		default:
-			blog(LOG_ERROR, "invalid video format");
+			blog(LOG_ERROR, "invalid video format: %d",
+			     frame->format);
 			break;
 		}
 

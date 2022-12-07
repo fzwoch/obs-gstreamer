@@ -87,7 +87,7 @@ bool obs_module_load(void)
 
 	gst_version(&major, &minor, &micro, &nano);
 
-	blog(LOG_INFO, "obs-gstreamer build: %s, gst-runtime: %u.%u.%u",
+	blog(LOG_INFO, "[obs-gstreamer] build: %s, gst-runtime: %u.%u.%u",
 	     obs_gstreamer_version, major, minor, micro);
 
 	struct obs_source_info source_info = {

@@ -181,7 +181,7 @@ void *gstreamer_encoder_create_h264(obs_data_t *settings,
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "msdkh264enc") == 0) {
-	    encoder_string = g_strdup_printf(
+		encoder_string = g_strdup_printf(
 			"msdkh264enc bitrate=%d rate-control=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
 			is_cbr ? "cbr" : "vbr",
@@ -260,7 +260,7 @@ void *gstreamer_encoder_create_h265(obs_data_t *settings,
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "msdkh265enc") == 0) {
-	    encoder_string = g_strdup_printf(
+		encoder_string = g_strdup_printf(
 			"msdkh265enc bitrate=%d rate-control=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
 			is_cbr ? "cbr" : "vbr",
@@ -514,7 +514,7 @@ obs_properties_t *gstreamer_encoder_get_properties_h264(void *data)
 					     "vtenc_h264");
 	if (check_feature("msdkh264enc"))
 		obs_property_list_add_string(prop, "Intel MSDK H264 encoder",
-						 "msdkh264enc");
+					     "msdkh264enc");
 
 	prop = obs_properties_add_list(props, "device", "Device",
 				       OBS_COMBO_TYPE_LIST,
@@ -569,10 +569,11 @@ obs_properties_t *gstreamer_encoder_get_properties_h265(void *data)
 	if (check_feature("vaapih265enc"))
 		obs_property_list_add_string(prop, "VA-API", "vaapih265enc");
 	if (check_feature("nvh265enc"))
-		obs_property_list_add_string(prop, "NVIDIA (NVENC)", "nvh265enc");
+		obs_property_list_add_string(prop, "NVIDIA (NVENC)",
+					     "nvh265enc");
 	if (check_feature("msdkh265enc"))
 		obs_property_list_add_string(prop, "Intel MSDK H265 encoder",
-						 "msdkh265enc");
+					     "msdkh265enc");
 
 	prop = obs_properties_add_list(props, "device", "Device",
 				       OBS_COMBO_TYPE_LIST,
