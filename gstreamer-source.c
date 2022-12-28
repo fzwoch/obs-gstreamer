@@ -76,7 +76,9 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 	case GST_MESSAGE_ERROR: {
 		GError *err;
 		gst_message_parse_error(message, &err, NULL);
-		blog(LOG_ERROR, "%s", err->message);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
 		g_error_free(err);
 	} // fallthrough
 	case GST_MESSAGE_EOS:
@@ -100,7 +102,9 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 	case GST_MESSAGE_WARNING: {
 		GError *err;
 		gst_message_parse_warning(message, &err, NULL);
-		blog(LOG_WARNING, "%s", err->message);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
 		g_error_free(err);
 	} break;
 	default:
@@ -209,8 +213,9 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 #endif
 	default:
 		frame.format = VIDEO_FORMAT_NONE;
-		blog(LOG_ERROR, "Unknown video format: %s",
-		     video_info.finfo->name);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Unknown video format: %s",
+		     source_name, video_info.finfo->name);
 		break;
 	}
 
@@ -270,8 +275,9 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	default:
 		audio.speakers = SPEAKERS_UNKNOWN;
-		blog(LOG_ERROR, "Unsupported channel count: %d",
-		     audio_info.channels);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Unsupported audio channel count: %d",
+		     source_name, audio_info.channels);
 		break;
 	}
 
@@ -290,8 +296,9 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	default:
 		audio.format = AUDIO_FORMAT_UNKNOWN;
-		blog(LOG_ERROR, "Unknown audio format: %s",
-		     audio_info.finfo->name);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Unknown audio format: %s",
+		     source_name, audio_info.finfo->name);
 		break;
 	}
 
@@ -341,7 +348,8 @@ static void create_pipeline(data_t *data)
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
 	if (err != NULL) {
-		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s", source_name, err->message);
 		g_error_free(err);
 
 		obs_source_output_video(data->source, NULL);
