@@ -93,6 +93,7 @@ bool obs_module_load(void)
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
 		.type = OBS_SOURCE_TYPE_INPUT,
+		.icon_type = OBS_ICON_TYPE_MEDIA,
 		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO |
 				OBS_SOURCE_DO_NOT_DUPLICATE,
 
