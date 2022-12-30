@@ -18,7 +18,12 @@
 # along with obs-gstreamer. If not, see <http://www.gnu.org/licenses/>.
 #
 
-project('obs-gstreamer', 'c')
+project('obs-gstreamer', 'c',
+  default_options : [
+    'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
+    'libdir='
+  ],
+)
 
 obs_dep = dependency('libobs', required : false)
 if not obs_dep.found()
@@ -51,5 +56,4 @@ shared_library('obs-gstreamer',
     dependency('gstreamer-app-1.0'),
   ],
   install : true,
-  install_dir : join_paths(get_option('libdir'), 'obs-plugins'),
 )
