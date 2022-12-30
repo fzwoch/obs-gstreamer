@@ -173,10 +173,14 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 			data->frame_size = frame->width * frame->height * 4;
 			format = "BGRx";
 			break;
-		default:
-			blog(LOG_ERROR, "invalid video format: %d",
-			     frame->format);
+		default: {
+			const char *source_name =
+				obs_source_get_name(data->source);
+			blog(LOG_ERROR,
+			     "[obs-gstreamer] %s: invalid video format: %d",
+			     source_name, frame->format);
 			break;
+		}
 		}
 
 		gchar *str = g_strdup_printf(
@@ -188,7 +192,10 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 		data->pipe = gst_parse_launch(str, &err);
 		g_free(str);
 		if (err != NULL) {
-			blog(LOG_ERROR, "%s", err->message);
+			const char *source_name =
+				obs_source_get_name(data->source);
+			blog(LOG_ERROR, "[obs-gstreamer] %s: %s", source_name,
+			     err->message);
 			g_error_free(err);
 
 			gst_object_unref(data->pipe);
@@ -258,7 +265,10 @@ gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data)
 		data->pipe = gst_parse_launch(str, &err);
 		g_free(str);
 		if (err != NULL) {
-			blog(LOG_ERROR, "%s", err->message);
+			const char *source_name =
+				obs_source_get_name(data->source);
+			blog(LOG_ERROR, "[obs-gstreamer] %s: %s", source_name,
+			     err->message);
 			g_error_free(err);
 
 			gst_object_unref(data->pipe);
