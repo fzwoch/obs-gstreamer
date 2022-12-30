@@ -276,7 +276,8 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 	default:
 		audio.speakers = SPEAKERS_UNKNOWN;
 		const char *source_name = obs_source_get_name(data->source);
-		blog(LOG_ERROR, "[obs-gstreamer] %s: Unsupported audio channel count: %d",
+		blog(LOG_ERROR,
+		     "[obs-gstreamer] %s: Unsupported audio channel count: %d",
 		     source_name, audio_info.channels);
 		break;
 	}
@@ -349,7 +350,8 @@ static void create_pipeline(data_t *data)
 	g_free(pipeline);
 	if (err != NULL) {
 		const char *source_name = obs_source_get_name(data->source);
-		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s", source_name, err->message);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s",
+		     source_name, err->message);
 		g_error_free(err);
 
 		obs_source_output_video(data->source, NULL);
