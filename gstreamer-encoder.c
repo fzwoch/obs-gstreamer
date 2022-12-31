@@ -401,7 +401,9 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 			}
 		}
 
-		data->codec_data = g_memdup(data->info.data, size);
+		data->codec_data = g_malloc(size);
+		memcpy(data->codec_data, data->info.data, size);
+
 		data->codec_data_size = size;
 	}
 
@@ -470,7 +472,7 @@ static void populate_vaapi_devices(obs_property_t *prop)
 	int n = scandir("/dev/dri", &list, scanfilter, versionsort);
 
 	for (int i = 0; i < n; i++) {
-		char device[64] = {0};
+		char device[16 + NAME_MAX] = {0};
 		int w = snprintf(device, sizeof(device), "/dev/dri/%s",
 				 list[i]->d_name);
 		(void)w;
