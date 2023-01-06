@@ -30,6 +30,7 @@ typedef struct {
 	obs_data_t *settings;
 	gint64 frame_count;
 	gint64 audio_count;
+	enum obs_media_state obs_media_state;
 	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
@@ -54,6 +55,9 @@ static gboolean pipeline_destroy(gpointer user_data)
 
 	if (!data->pipe)
 		return G_SOURCE_REMOVE;
+
+	// reset OBS media flags
+	data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
 
 	// stop the bus_callback
 	GstBus *bus = gst_element_get_bus(data->pipe);
@@ -85,10 +89,46 @@ static gboolean pipeline_restart(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
+static void update_obs_media_state(GstMessage *message, data_t *data)
+{
+	switch (GST_MESSAGE_TYPE(message)) {
+	case GST_MESSAGE_STATE_CHANGED: {
+		GstState newstate;
+		gst_message_parse_state_changed(message, NULL, &newstate, NULL);
+		switch (newstate) {
+		default:
+		case GST_STATE_NULL:
+			blog(LOG_WARNING, "[obs-gstreamer] state is GST_STATE_NULL, unexpected.");
+			data->obs_media_state = OBS_MEDIA_STATE_NONE;
+			break;
+		case GST_STATE_READY:
+			data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
+			break;
+		case GST_STATE_PAUSED:
+			data->obs_media_state = OBS_MEDIA_STATE_PAUSED;
+			break;
+		case GST_STATE_PLAYING:
+			data->obs_media_state = OBS_MEDIA_STATE_PLAYING;
+			break;
+		}
+	} break;
+	case GST_MESSAGE_ERROR: {
+		data->obs_media_state = OBS_MEDIA_STATE_ERROR;
+	} break;
+	case GST_MESSAGE_EOS: {
+		data->obs_media_state = OBS_MEDIA_STATE_ENDED;
+	} break;
+	default:
+		break;
+	}
+}
+
 static gboolean bus_callback(GstBus *bus, GstMessage *message,
 			     gpointer user_data)
 {
 	data_t *data = user_data;
+
+	update_obs_media_state(message, data);
 
 	switch (GST_MESSAGE_TYPE(message)) {
 	case GST_MESSAGE_ERROR: {
@@ -334,6 +374,43 @@ const char *gstreamer_source_get_name(void *type_data)
 	return "GStreamer Source";
 }
 
+enum obs_media_state gstreamer_source_get_state(void *user_data)
+{
+	data_t *data = user_data;
+
+	return data->obs_media_state;
+}
+
+int64_t gstreamer_source_get_time(void *user_data)
+{
+	data_t *data = user_data;
+	int64_t position;
+
+	if (!data->pipe)
+		return 0;
+
+	if (gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position))
+		if (GST_CLOCK_TIME_IS_VALID(position))
+			return GST_TIME_AS_MSECONDS(position);
+
+	return 0;
+}
+
+int64_t gstreamer_source_get_duration(void *user_data)
+{
+	data_t *data = user_data;
+	int64_t duration;
+
+	if (!data->pipe)
+		return 0;
+
+	if (gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration))
+		if (GST_CLOCK_TIME_IS_VALID(duration))
+			return GST_TIME_AS_MSECONDS(duration);
+
+	return 0;
+}
+
 static gboolean loop_startup(gpointer user_data)
 {
 	data_t *data = user_data;
@@ -356,6 +433,7 @@ static void create_pipeline(data_t *data)
 
 	data->frame_count = 0;
 	data->audio_count = 0;
+	data->obs_media_state = OBS_MEDIA_STATE_OPENING;
 
 	gchar *pipeline = g_strdup_printf(
 #ifdef GST_VIDEO_FORMAT_I420_10LE
@@ -374,6 +452,8 @@ static void create_pipeline(data_t *data)
 		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s",
 		     source_name, err->message);
 		g_error_free(err);
+
+		data->obs_media_state = OBS_MEDIA_STATE_ERROR;
 
 		obs_source_output_video(data->source, NULL);
 
