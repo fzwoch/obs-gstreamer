@@ -38,6 +38,9 @@ extern void gstreamer_source_hide(void *data);
 extern enum obs_media_state gstreamer_source_get_state(void *data);
 extern int64_t gstreamer_source_get_time(void *data);
 extern int64_t gstreamer_source_get_duration(void *data);
+extern void gstreamer_source_play_pause(void *data, bool pause);
+extern void gstreamer_source_stop(void *data);
+extern void gstreamer_source_restart(void *data);
 
 // gstreamer-encoder.c
 extern const char *gstreamer_encoder_get_name_h264(void *type_data);
@@ -98,8 +101,8 @@ bool obs_module_load(void)
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.icon_type = OBS_ICON_TYPE_MEDIA,
 		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO |
-				OBS_SOURCE_DO_NOT_DUPLICATE,
-
+				OBS_SOURCE_DO_NOT_DUPLICATE |
+				OBS_SOURCE_CONTROLLABLE_MEDIA,
 		.get_name = gstreamer_source_get_name,
 		.create = gstreamer_source_create,
 		.destroy = gstreamer_source_destroy,
@@ -113,6 +116,10 @@ bool obs_module_load(void)
 		.media_get_state = gstreamer_source_get_state,
 		.media_get_time = gstreamer_source_get_time,
 		.media_get_duration = gstreamer_source_get_duration,
+
+		.media_play_pause = gstreamer_source_play_pause,
+		.media_stop = gstreamer_source_stop,
+		.media_restart = gstreamer_source_restart,
 	};
 
 	obs_register_source(&source_info);

@@ -411,6 +411,52 @@ int64_t gstreamer_source_get_duration(void *user_data)
 	return 0;
 }
 
+static gboolean pipeline_pause(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+	    gst_element_set_state(data->pipe, GST_STATE_PAUSED);
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean pipeline_play(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+	    gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	return G_SOURCE_REMOVE;
+}
+
+void gstreamer_source_play_pause(void *user_data, bool pause)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pause ? pipeline_pause : pipeline_play,
+			      data);
+}
+
+void gstreamer_source_stop(void *user_data)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_destroy, data);
+
+}
+
+void gstreamer_source_restart(void *user_data)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_restart, data);
+}
+
 static gboolean loop_startup(gpointer user_data)
 {
 	data_t *data = user_data;
