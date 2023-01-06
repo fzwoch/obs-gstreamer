@@ -32,6 +32,7 @@ typedef struct {
 	gint64 audio_count;
 	enum obs_media_state obs_media_state;
 	gint64 seek_pos_pending;
+	bool buffering;
 	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
@@ -60,6 +61,7 @@ static gboolean pipeline_destroy(gpointer user_data)
 	// reset OBS media flags
 	data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
 	data->seek_pos_pending = -1;
+	data->buffering = false;
 
 	// stop the bus_callback
 	GstBus *bus = gst_element_get_bus(data->pipe);
@@ -94,6 +96,11 @@ static gboolean pipeline_restart(gpointer user_data)
 static void update_obs_media_state(GstMessage *message, data_t *data)
 {
 	switch (GST_MESSAGE_TYPE(message)) {
+	case GST_MESSAGE_BUFFERING: {
+		gint percent;
+		gst_message_parse_buffering(message, &percent);
+		data->buffering = (percent < 100);
+	} break;
 	case GST_MESSAGE_STATE_CHANGED: {
 		GstState newstate;
 		gst_message_parse_state_changed(message, NULL, &newstate, NULL);
@@ -380,6 +387,9 @@ enum obs_media_state gstreamer_source_get_state(void *user_data)
 {
 	data_t *data = user_data;
 
+	if (data->buffering && data->obs_media_state != OBS_MEDIA_STATE_ERROR)
+	    return OBS_MEDIA_STATE_BUFFERING;
+
 	return data->obs_media_state;
 }
 
@@ -540,6 +550,7 @@ static void create_pipeline(data_t *data)
 	data->audio_count = 0;
 	data->obs_media_state = OBS_MEDIA_STATE_OPENING;
 	data->seek_pos_pending = -1;
+	data->buffering = false;
 
 	gchar *pipeline = g_strdup_printf(
 #ifdef GST_VIDEO_FORMAT_I420_10LE
