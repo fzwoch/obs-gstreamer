@@ -41,6 +41,7 @@ extern int64_t gstreamer_source_get_duration(void *data);
 extern void gstreamer_source_play_pause(void *data, bool pause);
 extern void gstreamer_source_stop(void *data);
 extern void gstreamer_source_restart(void *data);
+extern void gstreamer_source_set_time(void *data, int64_t ms);
 
 // gstreamer-encoder.c
 extern const char *gstreamer_encoder_get_name_h264(void *type_data);
@@ -120,6 +121,7 @@ bool obs_module_load(void)
 		.media_play_pause = gstreamer_source_play_pause,
 		.media_stop = gstreamer_source_stop,
 		.media_restart = gstreamer_source_restart,
+		.media_set_time = gstreamer_source_set_time,
 	};
 
 	obs_register_source(&source_info);
