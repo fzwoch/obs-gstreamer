@@ -31,6 +31,7 @@ typedef struct {
 	gint64 frame_count;
 	gint64 audio_count;
 	enum obs_media_state obs_media_state;
+	gint64 seek_pos_pending;
 	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
@@ -58,6 +59,7 @@ static gboolean pipeline_destroy(gpointer user_data)
 
 	// reset OBS media flags
 	data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
+	data->seek_pos_pending = -1;
 
 	// stop the bus_callback
 	GstBus *bus = gst_element_get_bus(data->pipe);
@@ -457,6 +459,63 @@ void gstreamer_source_restart(void *user_data)
 			      pipeline_restart, data);
 }
 
+static gboolean pipeline_seek_to_pending(gpointer user_data)
+{
+	data_t *data = user_data;
+	gint64 seek_pos_pending;
+	gboolean seek_enabled;
+
+	seek_pos_pending = data->seek_pos_pending;
+	data->seek_pos_pending = -1;
+
+	if (!data->pipe)
+		return G_SOURCE_REMOVE;
+
+	if (seek_pos_pending < 0) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: No seek_pos_pending",
+		     source_name);
+		return G_SOURCE_REMOVE;
+	}
+
+	// determine whether seeking is possible on this pipeline
+	GstQuery *query;
+	gint64 start, end;
+	query = gst_query_new_seeking(GST_FORMAT_TIME);
+	if (!gst_element_query(data->pipe, query)) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Seeking query failed",
+		     source_name);
+		gst_query_unref(query);
+		return G_SOURCE_REMOVE;
+	}
+	gst_query_parse_seeking(query, NULL, &seek_enabled, &start, &end);
+	gst_query_unref(query);
+
+	if (!seek_enabled) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: Seeking is disabled",
+		     source_name);
+		return G_SOURCE_REMOVE;
+	}
+
+	// do the seek
+	gst_element_seek_simple(data->pipe, GST_FORMAT_TIME,
+		GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT,
+		seek_pos_pending);
+
+	return G_SOURCE_REMOVE;
+}
+
+void gstreamer_source_set_time(void *user_data, int64_t ms)
+{
+	data_t *data = user_data;
+
+	data->seek_pos_pending = ms * GST_MSECOND;
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_seek_to_pending, data);
+}
+
 static gboolean loop_startup(gpointer user_data)
 {
 	data_t *data = user_data;
@@ -480,6 +539,7 @@ static void create_pipeline(data_t *data)
 	data->frame_count = 0;
 	data->audio_count = 0;
 	data->obs_media_state = OBS_MEDIA_STATE_OPENING;
+	data->seek_pos_pending = -1;
 
 	gchar *pipeline = g_strdup_printf(
 #ifdef GST_VIDEO_FORMAT_I420_10LE
