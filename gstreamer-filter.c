@@ -34,6 +34,36 @@ typedef struct {
 	obs_data_t *settings;
 } data_t;
 
+static gboolean bus_callback(GstBus *bus, GstMessage *message,
+			     gpointer user_data)
+{
+	data_t *data = user_data;
+
+	switch (GST_MESSAGE_TYPE(message)) {
+	case GST_MESSAGE_ERROR: {
+		GError *err;
+		gst_message_parse_error(message, &err, NULL);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
+		g_error_free(err);
+		break;
+	}
+	case GST_MESSAGE_WARNING: {
+		GError *err;
+		gst_message_parse_warning(message, &err, NULL);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
+		g_error_free(err);
+	} break;
+	default:
+		break;
+	}
+
+	return TRUE;
+}
+
 const char *gstreamer_filter_get_name_video(void *type_data)
 {
 	return "GStreamer Filter (Video)";
@@ -59,6 +89,10 @@ void gstreamer_filter_destroy(void *p)
 	data_t *data = (data_t *)p;
 
 	if (data->pipe != NULL) {
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
+
 		gst_element_set_state(data->pipe, GST_STATE_NULL);
 
 		gst_object_unref(data->appsrc);
@@ -208,6 +242,10 @@ gstreamer_filter_filter_video(void *p, struct obs_source_frame *frame)
 			gst_bin_get_by_name(GST_BIN(data->pipe), "appsrc");
 		data->appsink =
 			gst_bin_get_by_name(GST_BIN(data->pipe), "appsink");
+
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		gst_bus_add_watch(bus, bus_callback, data);
+		gst_object_unref(bus);
 
 		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 	}

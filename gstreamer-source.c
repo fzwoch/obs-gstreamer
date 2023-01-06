@@ -107,7 +107,8 @@ static void update_obs_media_state(GstMessage *message, data_t *data)
 		switch (newstate) {
 		default:
 		case GST_STATE_NULL:
-			blog(LOG_WARNING, "[obs-gstreamer] state is GST_STATE_NULL, unexpected.");
+			blog(LOG_WARNING,
+			     "[obs-gstreamer] state is GST_STATE_NULL, unexpected.");
 			data->obs_media_state = OBS_MEDIA_STATE_NONE;
 			break;
 		case GST_STATE_READY:
@@ -159,9 +160,8 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 		    data->timeout == NULL) {
 			data->timeout = g_timeout_source_new(obs_data_get_int(
 				data->settings, "restart_timeout"));
-			g_source_set_callback(data->timeout,
-					      pipeline_restart, data,
-					      timeout_destroy);
+			g_source_set_callback(data->timeout, pipeline_restart,
+					      data, timeout_destroy);
 			g_source_attach(data->timeout,
 					g_main_context_get_thread_default());
 		}
@@ -388,7 +388,7 @@ enum obs_media_state gstreamer_source_get_state(void *user_data)
 	data_t *data = user_data;
 
 	if (data->buffering && data->obs_media_state != OBS_MEDIA_STATE_ERROR)
-	    return OBS_MEDIA_STATE_BUFFERING;
+		return OBS_MEDIA_STATE_BUFFERING;
 
 	return data->obs_media_state;
 }
@@ -428,7 +428,7 @@ static gboolean pipeline_pause(gpointer user_data)
 	data_t *data = user_data;
 
 	if (data->pipe)
-	    gst_element_set_state(data->pipe, GST_STATE_PAUSED);
+		gst_element_set_state(data->pipe, GST_STATE_PAUSED);
 
 	return G_SOURCE_REMOVE;
 }
@@ -438,7 +438,7 @@ static gboolean pipeline_play(gpointer user_data)
 	data_t *data = user_data;
 
 	if (data->pipe)
-	    gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
 	return G_SOURCE_REMOVE;
 }
@@ -448,8 +448,7 @@ void gstreamer_source_play_pause(void *user_data, bool pause)
 	data_t *data = user_data;
 
 	g_main_context_invoke(g_main_loop_get_context(data->loop),
-			      pause ? pipeline_pause : pipeline_play,
-			      data);
+			      pause ? pipeline_pause : pipeline_play, data);
 }
 
 void gstreamer_source_stop(void *user_data)
@@ -458,7 +457,6 @@ void gstreamer_source_stop(void *user_data)
 
 	g_main_context_invoke(g_main_loop_get_context(data->loop),
 			      pipeline_destroy, data);
-
 }
 
 void gstreamer_source_restart(void *user_data)
@@ -511,8 +509,8 @@ static gboolean pipeline_seek_to_pending(gpointer user_data)
 
 	// do the seek
 	gst_element_seek_simple(data->pipe, GST_FORMAT_TIME,
-		GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT,
-		seek_pos_pending);
+				GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT,
+				seek_pos_pending);
 
 	return G_SOURCE_REMOVE;
 }
