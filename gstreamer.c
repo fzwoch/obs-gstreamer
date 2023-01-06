@@ -35,6 +35,9 @@ extern obs_properties_t *gstreamer_source_get_properties(void *data);
 extern void gstreamer_source_update(void *data, obs_data_t *settings);
 extern void gstreamer_source_show(void *data);
 extern void gstreamer_source_hide(void *data);
+extern enum obs_media_state gstreamer_source_get_state(void *data);
+extern int64_t gstreamer_source_get_time(void *data);
+extern int64_t gstreamer_source_get_duration(void *data);
 
 // gstreamer-encoder.c
 extern const char *gstreamer_encoder_get_name_h264(void *type_data);
@@ -106,6 +109,10 @@ bool obs_module_load(void)
 		.update = gstreamer_source_update,
 		.show = gstreamer_source_show,
 		.hide = gstreamer_source_hide,
+
+		.media_get_state = gstreamer_source_get_state,
+		.media_get_time = gstreamer_source_get_time,
+		.media_get_duration = gstreamer_source_get_duration,
 	};
 
 	obs_register_source(&source_info);
