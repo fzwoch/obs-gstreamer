@@ -48,16 +48,34 @@ static void timeout_destroy(gpointer user_data)
 	data->timeout = NULL;
 }
 
-static gboolean start_pipe(gpointer user_data)
+static gboolean pipeline_destroy(gpointer user_data)
 {
 	data_t *data = user_data;
 
+	if (!data->pipe)
+		return G_SOURCE_REMOVE;
+
+	// stop the bus_callback
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_remove_watch(bus);
 	gst_object_unref(bus);
 
+	// set state to GST_STATE_NULL here and _only_ here, just before
+	// unreferencing data->pipe
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
+
 	gst_object_unref(data->pipe);
 	data->pipe = NULL;
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean pipeline_restart(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+		pipeline_destroy(data);
 
 	create_pipeline(data);
 
@@ -82,7 +100,6 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 		g_error_free(err);
 	} // fallthrough
 	case GST_MESSAGE_EOS:
-		gst_element_set_state(data->pipe, GST_STATE_NULL);
 		if (obs_data_get_bool(data->settings, "clear_on_end"))
 			obs_source_output_video(data->source, NULL);
 		if (obs_data_get_bool(data->settings,
@@ -93,7 +110,8 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 		    data->timeout == NULL) {
 			data->timeout = g_timeout_source_new(obs_data_get_int(
 				data->settings, "restart_timeout"));
-			g_source_set_callback(data->timeout, start_pipe, data,
+			g_source_set_callback(data->timeout,
+					      pipeline_restart, data,
 					      timeout_destroy);
 			g_source_attach(data->timeout,
 					g_main_context_get_thread_default());
@@ -336,6 +354,9 @@ static void create_pipeline(data_t *data)
 {
 	GError *err = NULL;
 
+	data->frame_count = 0;
+	data->audio_count = 0;
+
 	gchar *pipeline = g_strdup_printf(
 #ifdef GST_VIDEO_FORMAT_I420_10LE
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY,I420_10LE,P010_10LE,I420_12LE,Y444_12LE} ! appsink name=video_appsink "
@@ -410,9 +431,6 @@ static void create_pipeline(data_t *data)
 
 	gst_object_unref(appsink);
 
-	data->frame_count = 0;
-	data->audio_count = 0;
-
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);
 	gst_object_unref(bus);
@@ -434,16 +452,8 @@ static gpointer _start(gpointer user_data)
 
 	g_main_loop_run(data->loop);
 
-	if (data->pipe != NULL) {
-		gst_element_set_state(data->pipe, GST_STATE_NULL);
-
-		GstBus *bus = gst_element_get_bus(data->pipe);
-		gst_bus_remove_watch(bus);
-		gst_object_unref(bus);
-
-		gst_object_unref(data->pipe);
-		data->pipe = NULL;
-	}
+	if (data->pipe)
+		pipeline_destroy(data);
 
 	g_main_loop_unref(data->loop);
 	data->loop = NULL;
