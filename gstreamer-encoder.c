@@ -79,13 +79,11 @@ char *gstreamer_get_format(data_t *data)
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 2;
 		break;
-		/*
 	case VIDEO_FORMAT_I422:
-		format = "I422";
+		format = "Y42B";
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 2;
 		break;
-		*/
 	case VIDEO_FORMAT_RGBA:
 		format = "RGBA";
 		data->buffer_size =
