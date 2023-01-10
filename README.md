@@ -98,19 +98,12 @@ $ ninja -C build
 $ sudo ninja -C build install
 ```
 
-It will install into the obs-plugins directory inside whatever libdir in meson is set to.
+By default it will install in the plugin directory of the user's home directory. (Linux only!)
+
+For system wide installs or other platforms you will need to pass additional options for the install location.
 
 E.g.
 ```shell
-meson --buildtype=release --libdir=lib build
+meson setup build --buildtype=release --prefix=/usr --libdir=lib/obs-plugins
 ```
-will install at /usr/local/lib/obs-plugins.
-
-
-If you want it to install outside of /usr/local you will have to set a prefix as well.
-
-E.g.
-```shell
-meson --buildtype=release --libdir=lib --prefix=/usr build
-```
-You can also make it install in your user home directory (wherever that directory was exactly..)
+will install at `/usr/lib/obs-plugins`.
