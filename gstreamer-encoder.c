@@ -97,7 +97,7 @@ char *gstreamer_get_format(data_t *data)
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 3;
 	case VIDEO_FORMAT_I444:
-		format = "I444";
+		format = "Y444";
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 3;
 		break;
