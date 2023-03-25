@@ -54,6 +54,7 @@ shared_library('obs-gstreamer',
     dependency('gstreamer-video-1.0'),
     dependency('gstreamer-audio-1.0'),
     dependency('gstreamer-app-1.0'),
+    dependency('gstreamer-net-1.0'),
   ],
   install : true,
 )
