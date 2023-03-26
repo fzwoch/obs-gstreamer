@@ -89,16 +89,6 @@ static gboolean pipeline_restart(gpointer user_data)
 	if (data->pipe)
 		pipeline_destroy(data);
 
-	return G_SOURCE_REMOVE;
-}
-
-static gboolean pipeline_restart(gpointer user_data)
-{
-	data_t *data = user_data;
-
-	if (data->pipe)
-		pipeline_destroy(data);
-
 	create_pipeline(data);
 
 	if (data->pipe)
