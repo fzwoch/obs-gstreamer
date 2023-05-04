@@ -79,13 +79,11 @@ char *gstreamer_get_format(data_t *data)
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 2;
 		break;
-		/*
 	case VIDEO_FORMAT_I422:
-		format = "I422";
+		format = "Y42B";
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 2;
 		break;
-		*/
 	case VIDEO_FORMAT_RGBA:
 		format = "RGBA";
 		data->buffer_size =
@@ -99,7 +97,7 @@ char *gstreamer_get_format(data_t *data)
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 3;
 	case VIDEO_FORMAT_I444:
-		format = "I444";
+		format = "Y444";
 		data->buffer_size =
 			data->ovi.output_width * data->ovi.output_height * 3;
 		break;
@@ -181,9 +179,16 @@ void *gstreamer_encoder_create_h264(obs_data_t *settings,
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "msdkh264enc") == 0) {
-	    encoder_string = g_strdup_printf(
+		encoder_string = g_strdup_printf(
 			"msdkh264enc bitrate=%d rate-control=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "mpph264enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"mpph264enc bps=%d rc-mode=%s gop=%d",
+			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
 			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
@@ -260,9 +265,16 @@ void *gstreamer_encoder_create_h265(obs_data_t *settings,
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
 	} else if (g_strcmp0(encoder_type, "msdkh265enc") == 0) {
-	    encoder_string = g_strdup_printf(
+		encoder_string = g_strdup_printf(
 			"msdkh265enc bitrate=%d rate-control=%s gop-size=%d",
 			(int)obs_data_get_int(data->settings, "bitrate"),
+			is_cbr ? "cbr" : "vbr",
+			(int)obs_data_get_int(data->settings, "keyint_sec") *
+				data->ovi.fps_num / data->ovi.fps_den);
+	} else if (g_strcmp0(encoder_type, "mpph265enc") == 0) {
+		encoder_string = g_strdup_printf(
+			"mpph265enc bps=%d rc-mode=%s gop=%d",
+			(int)obs_data_get_int(data->settings, "bitrate") * 1000,
 			is_cbr ? "cbr" : "vbr",
 			(int)obs_data_get_int(data->settings, "keyint_sec") *
 				data->ovi.fps_num / data->ovi.fps_den);
@@ -387,7 +399,9 @@ bool gstreamer_encoder_encode(void *p, struct encoder_frame *frame,
 			}
 		}
 
-		data->codec_data = g_memdup(data->info.data, size);
+		data->codec_data = g_malloc(size);
+		memcpy(data->codec_data, data->info.data, size);
+
 		data->codec_data_size = size;
 	}
 
@@ -456,7 +470,7 @@ static void populate_vaapi_devices(obs_property_t *prop)
 	int n = scandir("/dev/dri", &list, scanfilter, versionsort);
 
 	for (int i = 0; i < n; i++) {
-		char device[64] = {0};
+		char device[16 + NAME_MAX] = {0};
 		int w = snprintf(device, sizeof(device), "/dev/dri/%s",
 				 list[i]->d_name);
 		(void)w;
@@ -514,7 +528,10 @@ obs_properties_t *gstreamer_encoder_get_properties_h264(void *data)
 					     "vtenc_h264");
 	if (check_feature("msdkh264enc"))
 		obs_property_list_add_string(prop, "Intel MSDK H264 encoder",
-						 "msdkh264enc");
+					     "msdkh264enc");
+	if (check_feature("mpph264enc"))
+		obs_property_list_add_string(prop, "Rockchip MPP H264 encoder",
+					     "mpph264enc");
 
 	prop = obs_properties_add_list(props, "device", "Device",
 				       OBS_COMBO_TYPE_LIST,
@@ -569,11 +586,14 @@ obs_properties_t *gstreamer_encoder_get_properties_h265(void *data)
 	if (check_feature("vaapih265enc"))
 		obs_property_list_add_string(prop, "VA-API", "vaapih265enc");
 	if (check_feature("nvh265enc"))
-		obs_property_list_add_string(prop, "NVIDIA (NVENC)", "nvh265enc");
+		obs_property_list_add_string(prop, "NVIDIA (NVENC)",
+					     "nvh265enc");
 	if (check_feature("msdkh265enc"))
 		obs_property_list_add_string(prop, "Intel MSDK H265 encoder",
-						 "msdkh265enc");
-
+					     "msdkh265enc");
+	if (check_feature("mpph265enc"))
+		obs_property_list_add_string(prop, "Rockchip MPP H265 encoder",
+					     "mpph265enc");
 	prop = obs_properties_add_list(props, "device", "Device",
 				       OBS_COMBO_TYPE_LIST,
 				       OBS_COMBO_FORMAT_STRING);

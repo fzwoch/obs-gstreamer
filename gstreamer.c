@@ -35,6 +35,13 @@ extern obs_properties_t *gstreamer_source_get_properties(void *data);
 extern void gstreamer_source_update(void *data, obs_data_t *settings);
 extern void gstreamer_source_show(void *data);
 extern void gstreamer_source_hide(void *data);
+extern enum obs_media_state gstreamer_source_get_state(void *data);
+extern int64_t gstreamer_source_get_time(void *data);
+extern int64_t gstreamer_source_get_duration(void *data);
+extern void gstreamer_source_play_pause(void *data, bool pause);
+extern void gstreamer_source_stop(void *data);
+extern void gstreamer_source_restart(void *data);
+extern void gstreamer_source_set_time(void *data, int64_t ms);
 
 // gstreamer-encoder.c
 extern const char *gstreamer_encoder_get_name_h264(void *type_data);
@@ -87,15 +94,16 @@ bool obs_module_load(void)
 
 	gst_version(&major, &minor, &micro, &nano);
 
-	blog(LOG_INFO, "obs-gstreamer build: %s, gst-runtime: %u.%u.%u",
+	blog(LOG_INFO, "[obs-gstreamer] build: %s, gst-runtime: %u.%u.%u",
 	     obs_gstreamer_version, major, minor, micro);
 
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
 		.type = OBS_SOURCE_TYPE_INPUT,
+		.icon_type = OBS_ICON_TYPE_MEDIA,
 		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO |
-				OBS_SOURCE_DO_NOT_DUPLICATE,
-
+				OBS_SOURCE_DO_NOT_DUPLICATE |
+				OBS_SOURCE_CONTROLLABLE_MEDIA,
 		.get_name = gstreamer_source_get_name,
 		.create = gstreamer_source_create,
 		.destroy = gstreamer_source_destroy,
@@ -105,6 +113,15 @@ bool obs_module_load(void)
 		.update = gstreamer_source_update,
 		.show = gstreamer_source_show,
 		.hide = gstreamer_source_hide,
+
+		.media_get_state = gstreamer_source_get_state,
+		.media_get_time = gstreamer_source_get_time,
+		.media_get_duration = gstreamer_source_get_duration,
+
+		.media_play_pause = gstreamer_source_play_pause,
+		.media_stop = gstreamer_source_stop,
+		.media_restart = gstreamer_source_restart,
+		.media_set_time = gstreamer_source_set_time,
 	};
 
 	obs_register_source(&source_info);

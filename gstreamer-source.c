@@ -32,6 +32,9 @@ typedef struct {
 	obs_data_t *settings;
 	gint64 frame_count;
 	gint64 audio_count;
+	enum obs_media_state obs_media_state;
+	gint64 seek_pos_pending;
+	bool buffering;
 	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
@@ -50,18 +53,41 @@ static void timeout_destroy(gpointer user_data)
 	data->timeout = NULL;
 }
 
-static gboolean start_pipe(gpointer user_data)
+static gboolean pipeline_destroy(gpointer user_data)
 {
 	data_t *data = user_data;
 
+	if (!data->pipe)
+		return G_SOURCE_REMOVE;
+
+	// reset OBS media flags
+	data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
+	data->seek_pos_pending = -1;
+	data->buffering = false;
+
+	// stop the bus_callback
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_remove_watch(bus);
 	gst_object_unref(bus);
+
+	// set state to GST_STATE_NULL here and _only_ here, just before
+	// unreferencing data->pipe
+	gst_element_set_state(data->pipe, GST_STATE_NULL);
 
 	gst_object_unref(data->pipe);
 	if(data->clock != NULL) gst_object_unref(data->clock);
 	data->pipe = NULL;
 	data->clock = NULL;
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean pipeline_restart(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+		pipeline_destroy(data);
 
 	create_pipeline(data);
 
@@ -71,20 +97,63 @@ static gboolean start_pipe(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
+static void update_obs_media_state(GstMessage *message, data_t *data)
+{
+	switch (GST_MESSAGE_TYPE(message)) {
+	case GST_MESSAGE_BUFFERING: {
+		gint percent;
+		gst_message_parse_buffering(message, &percent);
+		data->buffering = (percent < 100);
+	} break;
+	case GST_MESSAGE_STATE_CHANGED: {
+		GstState newstate;
+		gst_message_parse_state_changed(message, NULL, &newstate, NULL);
+		switch (newstate) {
+		default:
+		case GST_STATE_NULL:
+			blog(LOG_WARNING,
+			     "[obs-gstreamer] state is GST_STATE_NULL, unexpected.");
+			data->obs_media_state = OBS_MEDIA_STATE_NONE;
+			break;
+		case GST_STATE_READY:
+			data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
+			break;
+		case GST_STATE_PAUSED:
+			data->obs_media_state = OBS_MEDIA_STATE_PAUSED;
+			break;
+		case GST_STATE_PLAYING:
+			data->obs_media_state = OBS_MEDIA_STATE_PLAYING;
+			break;
+		}
+	} break;
+	case GST_MESSAGE_ERROR: {
+		data->obs_media_state = OBS_MEDIA_STATE_ERROR;
+	} break;
+	case GST_MESSAGE_EOS: {
+		data->obs_media_state = OBS_MEDIA_STATE_ENDED;
+	} break;
+	default:
+		break;
+	}
+}
+
 static gboolean bus_callback(GstBus *bus, GstMessage *message,
 			     gpointer user_data)
 {
 	data_t *data = user_data;
 
+	update_obs_media_state(message, data);
+
 	switch (GST_MESSAGE_TYPE(message)) {
 	case GST_MESSAGE_ERROR: {
 		GError *err;
 		gst_message_parse_error(message, &err, NULL);
-		blog(LOG_ERROR, "%s", err->message);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
 		g_error_free(err);
 	} // fallthrough
 	case GST_MESSAGE_EOS:
-		gst_element_set_state(data->pipe, GST_STATE_NULL);
 		if (obs_data_get_bool(data->settings, "clear_on_end"))
 			obs_source_output_video(data->source, NULL);
 		if (obs_data_get_bool(data->settings,
@@ -95,21 +164,18 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message,
 		    data->timeout == NULL) {
 			data->timeout = g_timeout_source_new(obs_data_get_int(
 				data->settings, "restart_timeout"));
-			g_source_set_callback(data->timeout, start_pipe, data,
-					      timeout_destroy);
+			g_source_set_callback(data->timeout, pipeline_restart,
+					      data, timeout_destroy);
 			g_source_attach(data->timeout,
 					g_main_context_get_thread_default());
 		}
 		break;
 	case GST_MESSAGE_WARNING: {
 		GError *err;
- 		gchar *debug = NULL;
-		gst_message_parse_warning(message, &err, &debug);
-		blog(LOG_WARNING, "%s", err->message);
- 		if(debug != NULL) {
-			blog(LOG_WARNING, "Additional debug info:\n%s\n", debug);
- 			g_free (debug);
- 		}
+		gst_message_parse_warning(message, &err, NULL);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: %s", source_name,
+		     err->message);
 		g_error_free(err);
 	} break;
 	default:
@@ -218,8 +284,9 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 #endif
 	default:
 		frame.format = VIDEO_FORMAT_NONE;
-		blog(LOG_ERROR, "Unknown video format: %s",
-		     video_info.finfo->name);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Unknown video format: %s",
+		     source_name, video_info.finfo->name);
 		break;
 	}
 
@@ -279,8 +346,10 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	default:
 		audio.speakers = SPEAKERS_UNKNOWN;
-		blog(LOG_ERROR, "Unsupported channel count: %d",
-		     audio_info.channels);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR,
+		     "[obs-gstreamer] %s: Unsupported audio channel count: %d",
+		     source_name, audio_info.channels);
 		break;
 	}
 
@@ -299,8 +368,9 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	default:
 		audio.format = AUDIO_FORMAT_UNKNOWN;
-		blog(LOG_ERROR, "Unknown audio format: %s",
-		     audio_info.finfo->name);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Unknown audio format: %s",
+		     source_name, audio_info.finfo->name);
 		break;
 	}
 
@@ -315,6 +385,147 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 const char *gstreamer_source_get_name(void *type_data)
 {
 	return "GStreamer Source";
+}
+
+enum obs_media_state gstreamer_source_get_state(void *user_data)
+{
+	data_t *data = user_data;
+
+	if (data->buffering && data->obs_media_state != OBS_MEDIA_STATE_ERROR)
+		return OBS_MEDIA_STATE_BUFFERING;
+
+	return data->obs_media_state;
+}
+
+int64_t gstreamer_source_get_time(void *user_data)
+{
+	data_t *data = user_data;
+	int64_t position;
+
+	if (!data->pipe)
+		return 0;
+
+	if (gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position))
+		if (GST_CLOCK_TIME_IS_VALID(position))
+			return GST_TIME_AS_MSECONDS(position);
+
+	return 0;
+}
+
+int64_t gstreamer_source_get_duration(void *user_data)
+{
+	data_t *data = user_data;
+	int64_t duration;
+
+	if (!data->pipe)
+		return 0;
+
+	if (gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration))
+		if (GST_CLOCK_TIME_IS_VALID(duration))
+			return GST_TIME_AS_MSECONDS(duration);
+
+	return 0;
+}
+
+static gboolean pipeline_pause(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+		gst_element_set_state(data->pipe, GST_STATE_PAUSED);
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean pipeline_play(gpointer user_data)
+{
+	data_t *data = user_data;
+
+	if (data->pipe)
+		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
+
+	return G_SOURCE_REMOVE;
+}
+
+void gstreamer_source_play_pause(void *user_data, bool pause)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pause ? pipeline_pause : pipeline_play, data);
+}
+
+void gstreamer_source_stop(void *user_data)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_destroy, data);
+}
+
+void gstreamer_source_restart(void *user_data)
+{
+	data_t *data = user_data;
+
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_restart, data);
+}
+
+static gboolean pipeline_seek_to_pending(gpointer user_data)
+{
+	data_t *data = user_data;
+	gint64 seek_pos_pending;
+	gboolean seek_enabled;
+
+	seek_pos_pending = data->seek_pos_pending;
+	data->seek_pos_pending = -1;
+
+	if (!data->pipe)
+		return G_SOURCE_REMOVE;
+
+	if (seek_pos_pending < 0) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: No seek_pos_pending",
+		     source_name);
+		return G_SOURCE_REMOVE;
+	}
+
+	// determine whether seeking is possible on this pipeline
+	GstQuery *query;
+	gint64 start, end;
+	query = gst_query_new_seeking(GST_FORMAT_TIME);
+	if (!gst_element_query(data->pipe, query)) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Seeking query failed",
+		     source_name);
+		gst_query_unref(query);
+		return G_SOURCE_REMOVE;
+	}
+	gst_query_parse_seeking(query, NULL, &seek_enabled, &start, &end);
+	gst_query_unref(query);
+
+	if (!seek_enabled) {
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_WARNING, "[obs-gstreamer] %s: Seeking is disabled",
+		     source_name);
+		return G_SOURCE_REMOVE;
+	}
+
+	// do the seek
+	gst_element_seek_simple(data->pipe, GST_FORMAT_TIME,
+				GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT,
+				seek_pos_pending);
+
+	return G_SOURCE_REMOVE;
+}
+
+void gstreamer_source_set_time(void *user_data, int64_t ms)
+{
+	data_t *data = user_data;
+
+	data->seek_pos_pending = ms * GST_MSECOND;
+	g_main_context_invoke(g_main_loop_get_context(data->loop),
+			      pipeline_seek_to_pending, data);
 }
 
 static gboolean loop_startup(gpointer user_data)
@@ -337,6 +548,12 @@ static void create_pipeline(data_t *data)
 {
 	GError *err = NULL;
 
+	data->frame_count = 0;
+	data->audio_count = 0;
+	data->obs_media_state = OBS_MEDIA_STATE_OPENING;
+	data->seek_pos_pending = -1;
+	data->buffering = false;
+
 	gchar *pipeline = g_strdup_printf(
 #ifdef GST_VIDEO_FORMAT_I420_10LE
 		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY,I420_10LE,P010_10LE,I420_12LE,Y444_12LE} ! appsink name=video_appsink "
@@ -350,8 +567,12 @@ static void create_pipeline(data_t *data)
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
 	if (err != NULL) {
-		blog(LOG_ERROR, "Cannot start GStreamer: %s", err->message);
+		const char *source_name = obs_source_get_name(data->source);
+		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s",
+		     source_name, err->message);
 		g_error_free(err);
+
+		data->obs_media_state = OBS_MEDIA_STATE_ERROR;
 
 		obs_source_output_video(data->source, NULL);
 
@@ -414,9 +635,6 @@ static void create_pipeline(data_t *data)
 	gst_object_unref(sink);
 
 	gst_object_unref(appsink);
-
-	data->frame_count = 0;
-	data->audio_count = 0;
 
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);

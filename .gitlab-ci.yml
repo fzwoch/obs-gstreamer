@@ -79,7 +79,7 @@ macos:
     - echo "endian = 'little'" >> cross.txt
 
     - export C_INCLUDE_PATH=/
-    - export LIBRARY_PATH=/OBS/OBS.app/Contents/Frameworks
+    - export LIBRARY_PATH=/OBS-x86_64/OBS.app/Contents/Frameworks
 
     - meson --buildtype release --cross-file cross.txt macos
     - ninja -C macos
@@ -106,7 +106,7 @@ macos:
     - echo "endian = 'little'" >> cross.txt
 
     - export C_INCLUDE_PATH=/
-    - export LIBRARY_PATH=/OBS/OBS.app/Contents/Frameworks
+    - export LIBRARY_PATH=/OBS-x86_64/OBS.app/Contents/Frameworks
 
     - meson --buildtype release --cross-file cross.txt macos-aarch64
     - ninja -C macos-aarch64

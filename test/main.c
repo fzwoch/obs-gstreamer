@@ -101,7 +101,7 @@ int main()
     obs_source_t *source = obs_source_create("gstreamer-source", "source", NULL, NULL);
     obs_source_t *filter_video = obs_source_create("gstreamer-filter-video", "video filter", NULL, NULL);
     obs_source_t *filter_audio = obs_source_create("gstreamer-filter-audio", "audio filter", NULL, NULL);
-    obs_encoder_t *encoder_video = obs_video_encoder_create("gstreamer-encoder", "encoder_video", NULL, NULL);
+    obs_encoder_t *encoder_video = obs_video_encoder_create("gstreamer-encoder-h264", "encoder_video", NULL, NULL);
     obs_encoder_t *encoder_audio = obs_audio_encoder_create("ffmpeg_aac", "encoder_audio", NULL, 0, NULL);
     obs_output_t *output = obs_output_create("gstreamer-output", "output", NULL, NULL);
 
