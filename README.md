@@ -69,6 +69,10 @@ RTSP example with h265 decoding via Nvidia GPU and MP2L2 audio extraction:
 
     rtspsrc location=rtspt://admin:*****@*****.ath.cx:555/Streaming/Channels/101 name=bin ! queue ! rtph265depay ! nvdec ! gldownload ! watchdog timeout=10000 ! video. bin. ! queue ! rtpmpadepay ! mpegaudioparse ! mpg123audiodec ! audio.
 
+RTSP H264 TS source with NTP sync and Nvidia GPU decoder example:
+
+    rtspsrc location=rtsp://h264-encoder.local/main1 rfc7273-sync=true buffer-mode=4 latency=40 ! rtmp2tdepay ! tsdemux latency=0 ! h264parse ! nvh264dec ! video.
+
 HLS example:
 
     uridecodebin uri=http://wowzaec2demo.streamlock.net:1935/vod/mp4:sample.mp4/playlist.m3u8 name=bin ! queue ! video. bin. ! queue ! audio.

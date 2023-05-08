@@ -23,9 +23,11 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
+#include <gst/net/gstnet.h>
 
 typedef struct {
 	GstElement *pipe;
+	GstClock *clock;
 	obs_source_t *source;
 	obs_data_t *settings;
 	gint64 frame_count;
@@ -73,7 +75,10 @@ static gboolean pipeline_destroy(gpointer user_data)
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
 
 	gst_object_unref(data->pipe);
+	if (data->clock != NULL)
+		gst_object_unref(data->clock);
 	data->pipe = NULL;
+	data->clock = NULL;
 
 	return G_SOURCE_REMOVE;
 }
@@ -591,6 +596,9 @@ static void create_pipeline(data_t *data)
 	if (obs_data_get_bool(data->settings, "block_video"))
 		g_object_set(appsink, "max-buffers", 1, NULL);
 
+	if (obs_data_get_bool(data->settings, "drop_video"))
+		gst_app_sink_set_drop(GST_APP_SINK(appsink), TRUE);
+
 	// check if connected and remove if not
 	GstElement *sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
 	GstPad *pad = gst_element_get_static_pad(sink, "sink");
@@ -616,6 +624,9 @@ static void create_pipeline(data_t *data)
 	if (obs_data_get_bool(data->settings, "block_audio"))
 		g_object_set(appsink, "max-buffers", 1, NULL);
 
+	if (obs_data_get_bool(data->settings, "drop_audio"))
+		gst_app_sink_set_drop(GST_APP_SINK(appsink), TRUE);
+
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
 	pad = gst_element_get_static_pad(sink, "sink");
@@ -629,6 +640,37 @@ static void create_pipeline(data_t *data)
 	GstBus *bus = gst_element_get_bus(data->pipe);
 	gst_bus_add_watch(bus, bus_callback, data);
 	gst_object_unref(bus);
+
+	// set clock
+	const char *server = obs_data_get_string(data->settings, "ntp_server");
+	if (strlen(server) > 0) {
+		gint clock_port = obs_data_get_int(data->settings, "ntp_port");
+		data->clock =
+			gst_ntp_clock_new("net_clock", server, clock_port, 0);
+		blog(LOG_INFO, "Connect to NTP server %s", server);
+		if (data->clock == NULL) {
+			blog(LOG_ERROR, "Failed to connect to net clock %s",
+			     server);
+			return;
+		}
+		if (!gst_clock_wait_for_sync(data->clock, 5 * GST_SECOND)) {
+			blog(LOG_ERROR,
+			     "Failed to sync to net clock %s, timeout", server);
+			return;
+		}
+		gst_pipeline_use_clock(GST_PIPELINE(data->pipe),
+				       GST_CLOCK(data->clock));
+	}
+	gint latency = obs_data_get_int(data->settings, "latency");
+	// set latency
+	if (latency) {
+		gst_pipeline_set_latency(GST_PIPELINE(data->pipe),
+					 latency * GST_MSECOND);
+		gint cur_latency =
+			gst_pipeline_get_latency(GST_PIPELINE(data->pipe)) /
+			GST_MSECOND;
+		blog(LOG_INFO, "Set latency for pipeline to %dms", cur_latency);
+	}
 }
 
 static gpointer _start(gpointer user_data)
@@ -647,8 +689,19 @@ static gpointer _start(gpointer user_data)
 
 	g_main_loop_run(data->loop);
 
-	if (data->pipe)
-		pipeline_destroy(data);
+	if (data->pipe != NULL) {
+		gst_element_set_state(data->pipe, GST_STATE_NULL);
+
+		GstBus *bus = gst_element_get_bus(data->pipe);
+		gst_bus_remove_watch(bus);
+		gst_object_unref(bus);
+
+		gst_object_unref(data->pipe);
+		if (data->clock != NULL)
+			gst_object_unref(data->clock);
+		data->pipe = NULL;
+		data->clock = NULL;
+	}
 
 	g_main_loop_unref(data->loop);
 	data->loop = NULL;
@@ -670,6 +723,9 @@ static void start(data_t *data)
 
 void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 {
+	bool nobuf = obs_data_get_bool(settings, "no_buffer");
+	obs_source_set_async_unbuffered(source, nobuf);
+
 	data_t *data = g_new0(data_t, 1);
 
 	data->source = source;
@@ -726,9 +782,15 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "restart_on_eos", true);
 	obs_data_set_default_bool(settings, "restart_on_error", false);
 	obs_data_set_default_int(settings, "restart_timeout", 2000);
+	obs_data_set_default_bool(settings, "no_buffer", false);
+	obs_data_set_default_int(settings, "latency", 0);
+	obs_data_set_default_string(settings, "ntp_server", "");
+	obs_data_set_default_int(settings, "ntp_port", 123);
 	obs_data_set_default_bool(settings, "stop_on_hide", true);
 	obs_data_set_default_bool(settings, "block_video", false);
 	obs_data_set_default_bool(settings, "block_audio", false);
+	obs_data_set_default_bool(settings, "drop_video", false);
+	obs_data_set_default_bool(settings, "drop_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
 }
 
@@ -776,13 +838,30 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 			       0, 10000, 100);
 	obs_properties_add_bool(props, "stop_on_hide",
 				"Stop pipeline when hidden");
-	obs_properties_add_bool(props, "block_video",
-				"Block video path when sink not fast enough");
-	obs_properties_add_bool(props, "block_audio",
-				"Block audio path when sink not fast enough");
 	obs_properties_add_bool(
 		props, "clear_on_end",
 		"Clear image data after end-of-stream or error");
+	obs_properties_add_bool(props, "block_video",
+				"Disable video sink buffer");
+	obs_properties_add_bool(props, "drop_video",
+				"Drop video when sink is not fast enough");
+	obs_properties_add_bool(props, "block_audio",
+				"Disable audio sink buffer");
+	obs_properties_add_bool(props, "drop_audio",
+				"Drop audio when sink is not fast enough");
+	obs_properties_add_bool(props, "no_buffer", "Disable buffering in OBS");
+	prop = obs_properties_add_int(props, "latency", "Fixed latency (ms)", 0,
+				      10000, 10);
+	obs_property_set_long_description(
+		prop,
+		"This sets a fixed latency for the pipeline for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given pipeline.");
+	prop = obs_properties_add_text(props, "ntp_server", "NTP server",
+				       OBS_TEXT_DEFAULT);
+	obs_property_set_long_description(
+		prop,
+		"This sets a NTP server for syncing the gstreamer clock to.\nUse e.g. with rtspsrc rfc7273-sync or ntp-sync options.\nLeave empty to not use a NTP server.");
+	obs_properties_add_int(props, "ntp_port", "NTP server port", 1, 65536,
+			       1);
 	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked,
 				   data);
 
@@ -792,6 +871,9 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 void gstreamer_source_update(void *data, obs_data_t *settings)
 {
 	stop(data);
+
+	bool nobuf = obs_data_get_bool(settings, "no_buffer");
+	obs_source_set_async_unbuffered(((data_t *)data)->source, nobuf);
 
 	// Don't start the pipeline if source is hidden and 'stop_on_hide' is set.
 	// From GUI this is probably irrelevant but works around some quirks when
