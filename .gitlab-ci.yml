@@ -1,9 +1,9 @@
 stages:
-  - docker
+#  - docker
   - build
   - deploy
 
-docker-linux:
+.docker-linux:
   stage: docker
   image: docker:git
   services:
@@ -18,7 +18,7 @@ docker-linux:
       - docker/linux
       when: always
 
-docker-macos:
+.docker-macos:
   stage: docker
   image: docker:git
   services:
@@ -33,7 +33,7 @@ docker-macos:
       - docker/macos
       when: always
 
-docker-mingw:
+.docker-mingw:
   stage: docker
   image: docker:git
   services:
