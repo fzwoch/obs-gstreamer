@@ -61,7 +61,7 @@ linux:
       - linux/obs-gstreamer.so
     expire_in: 1 day
 
-macos:
+.macos:
   stage: build
   image: registry.gitlab.com/fzwoch/obs-gstreamer/macos
   script:
@@ -160,5 +160,5 @@ obs-gstreamer:
     name: obs-gstreamer
     paths:
       - linux/obs-gstreamer.so
-      - macos/obs-gstreamer.so
+#      - macos/obs-gstreamer.so
       - windows/obs-gstreamer.dll
