@@ -689,19 +689,8 @@ static gpointer _start(gpointer user_data)
 
 	g_main_loop_run(data->loop);
 
-	if (data->pipe != NULL) {
-		gst_element_set_state(data->pipe, GST_STATE_NULL);
-
-		GstBus *bus = gst_element_get_bus(data->pipe);
-		gst_bus_remove_watch(bus);
-		gst_object_unref(bus);
-
-		gst_object_unref(data->pipe);
-		if (data->clock != NULL)
-			gst_object_unref(data->clock);
-		data->pipe = NULL;
-		data->clock = NULL;
-	}
+	if (data->pipe)
+		pipeline_destroy(data);
 
 	g_main_loop_unref(data->loop);
 	data->loop = NULL;
