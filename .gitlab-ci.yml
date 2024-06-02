@@ -83,9 +83,21 @@ linux:
 
     - meson --buildtype release --cross-file cross.txt macos
     - ninja -C macos
+
+    - mkdir -p macos/obs-gstreamer.plugin/Contents/MacOS
+    - mv macos/obs-gstreamer.so macos/obs-gstreamer.plugin/Contents/MacOS/obs-gstreamer
+
+    - echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "<plist version=\"1.0\">" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "<dict>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "  <key>CFBundleExecutable</key>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "  <string>obs-gstreamer</string>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "</dict>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "</plist>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
   artifacts:
     paths:
-      - macos/obs-gstreamer.so
+      - macos/obs-gstreamer.plugin
     expire_in: 1 day
 
 .macos-aarch64:
