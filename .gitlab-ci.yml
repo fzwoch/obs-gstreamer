@@ -66,11 +66,11 @@ linux:
   image: registry.gitlab.com/fzwoch/obs-gstreamer/macos
   script:
     - echo "[binaries]" >> cross.txt
-    - echo "c = 'x86_64-apple-darwin20.2-cc'" >> cross.txt
-    - echo "cpp = 'x86_64-apple-darwin20.2-c++'" >> cross.txt
-    - echo "ar = 'x86_64-apple-darwin20.2-ar'" >> cross.txt
-    - echo "strip = 'x86_64-apple-darwin20.2-strip'" >> cross.txt
-    - echo "pkgconfig = 'x86_64-apple-darwin20.2-pkg-config'" >> cross.txt
+    - echo "c = 'x86_64-apple-darwin23-cc'" >> cross.txt
+    - echo "cpp = 'x86_64-apple-darwin23-c++'" >> cross.txt
+    - echo "ar = 'x86_64-apple-darwin23-ar'" >> cross.txt
+    - echo "strip = 'x86_64-apple-darwin23-strip'" >> cross.txt
+    - echo "pkgconfig = 'x86_64-apple-darwin23-pkg-config'" >> cross.txt
 
     - echo "[host_machine]" >> cross.txt
     - echo "system = 'darwin'" >> cross.txt
@@ -88,7 +88,7 @@ linux:
     - mv macos/obs-gstreamer.so macos/obs-gstreamer.plugin/Contents/MacOS/obs-gstreamer
 
     - echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
-    - echo "<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" >> macos/obs-gstreamer.plugin/Contents/Info.plist
+    - echo "<"'!'"DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" >> macos/obs-gstreamer.plugin/Contents/Info.plist
     - echo "<plist version=\"1.0\">" >> macos/obs-gstreamer.plugin/Contents/Info.plist
     - echo "<dict>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
     - echo "  <key>CFBundleExecutable</key>" >> macos/obs-gstreamer.plugin/Contents/Info.plist
