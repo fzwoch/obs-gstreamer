@@ -131,6 +131,8 @@ bool obs_module_load(void)
 		.type = OBS_ENCODER_VIDEO,
 		.codec = "h264",
 
+		.caps = OBS_ENCODER_CAP_DEPRECATED,
+
 		.get_name = gstreamer_encoder_get_name_h264,
 		.create = gstreamer_encoder_create_h264,
 		.destroy = gstreamer_encoder_destroy,
@@ -149,6 +151,8 @@ bool obs_module_load(void)
 		.id = "gstreamer-encoder-h265",
 		.type = OBS_ENCODER_VIDEO,
 		.codec = "hevc",
+
+		.caps = OBS_ENCODER_CAP_DEPRECATED,
 
 		.get_name = gstreamer_encoder_get_name_h265,
 		.create = gstreamer_encoder_create_h265,
