@@ -172,5 +172,5 @@ obs-gstreamer:
     name: obs-gstreamer
     paths:
       - linux/obs-gstreamer.so
-#      - macos/obs-gstreamer.so
+      - macos/obs-gstreamer.plugin
       - windows/obs-gstreamer.dll
