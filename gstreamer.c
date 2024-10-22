@@ -27,8 +27,7 @@ OBS_DECLARE_MODULE()
 
 // gstreamer-source.c
 extern const char *gstreamer_source_get_name(void *type_data);
-extern void *gstreamer_source_create(obs_data_t *settings,
-				     obs_source_t *source);
+extern void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source);
 extern void gstreamer_source_destroy(void *data);
 extern void gstreamer_source_get_defaults(obs_data_t *settings);
 extern obs_properties_t *gstreamer_source_get_properties(void *data);
@@ -46,45 +45,36 @@ extern void gstreamer_source_set_time(void *data, int64_t ms);
 // gstreamer-encoder.c
 extern const char *gstreamer_encoder_get_name_h264(void *type_data);
 extern const char *gstreamer_encoder_get_name_h265(void *type_data);
-extern void *gstreamer_encoder_create_h264(obs_data_t *settings,
-					   obs_encoder_t *encoder);
-extern void *gstreamer_encoder_create_h265(obs_data_t *settings,
-					   obs_encoder_t *encoder);
+extern void *gstreamer_encoder_create_h264(obs_data_t *settings, obs_encoder_t *encoder);
+extern void *gstreamer_encoder_create_h265(obs_data_t *settings, obs_encoder_t *encoder);
 extern void gstreamer_encoder_destroy(void *data);
-extern bool gstreamer_encoder_encode(void *data, struct encoder_frame *frame,
-				     struct encoder_packet *packet,
+extern bool gstreamer_encoder_encode(void *data, struct encoder_frame *frame, struct encoder_packet *packet,
 				     bool *received_packet);
 extern void gstreamer_encoder_get_defaults_h264(obs_data_t *settings);
 extern void gstreamer_encoder_get_defaults_h265(obs_data_t *settings);
 extern obs_properties_t *gstreamer_encoder_get_properties_h264(void *data);
 extern obs_properties_t *gstreamer_encoder_get_properties_h265(void *data);
-extern bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data,
-					     size_t *size);
+extern bool gstreamer_encoder_get_extra_data(void *data, uint8_t **extra_data, size_t *size);
 
 // gstreamer-filter.c
 extern const char *gstreamer_filter_get_name_video(void *type_data);
 extern const char *gstreamer_filter_get_name_audio(void *type_data);
-extern void *gstreamer_filter_create(obs_data_t *settings,
-				     obs_source_t *source);
+extern void *gstreamer_filter_create(obs_data_t *settings, obs_source_t *source);
 extern void gstreamer_filter_destroy(void *data);
 extern void gstreamer_filter_get_defaults_video(obs_data_t *settings);
 extern void gstreamer_filter_get_defaults_audio(obs_data_t *settings);
 extern obs_properties_t *gstreamer_filter_get_properties(void *data);
 extern void gstreamer_filter_update(void *data, obs_data_t *settings);
-extern struct obs_source_frame *
-gstreamer_filter_filter_video(void *data, struct obs_source_frame *frame);
-struct obs_audio_data *
-gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data);
+extern struct obs_source_frame *gstreamer_filter_filter_video(void *data, struct obs_source_frame *frame);
+struct obs_audio_data *gstreamer_filter_filter_audio(void *p, struct obs_audio_data *audio_data);
 
 // gstreamer-output.c
 extern const char *gstreamer_output_get_name(void *type_data);
-extern void *gstreamer_output_create(obs_data_t *settings,
-				     obs_output_t *output);
+extern void *gstreamer_output_create(obs_data_t *settings, obs_output_t *output);
 extern void gstreamer_output_destroy(void *data);
 extern bool gstreamer_output_start(void *data);
 extern void gstreamer_output_stop(void *data, uint64_t ts);
-extern void gstreamer_output_encoded_packet(void *data,
-					    struct encoder_packet *packet);
+extern void gstreamer_output_encoded_packet(void *data, struct encoder_packet *packet);
 extern void gstreamer_output_get_defaults(obs_data_t *settings);
 extern obs_properties_t *gstreamer_output_get_properties(void *data);
 
@@ -94,15 +84,13 @@ bool obs_module_load(void)
 
 	gst_version(&major, &minor, &micro, &nano);
 
-	blog(LOG_INFO, "[obs-gstreamer] build: %s, gst-runtime: %u.%u.%u",
-	     obs_gstreamer_version, major, minor, micro);
+	blog(LOG_INFO, "[obs-gstreamer] build: %s, gst-runtime: %u.%u.%u", obs_gstreamer_version, major, minor, micro);
 
 	struct obs_source_info source_info = {
 		.id = "gstreamer-source",
 		.type = OBS_SOURCE_TYPE_INPUT,
 		.icon_type = OBS_ICON_TYPE_MEDIA,
-		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO |
-				OBS_SOURCE_DO_NOT_DUPLICATE |
+		.output_flags = OBS_SOURCE_ASYNC_VIDEO | OBS_SOURCE_AUDIO | OBS_SOURCE_DO_NOT_DUPLICATE |
 				OBS_SOURCE_CONTROLLABLE_MEDIA,
 		.get_name = gstreamer_source_get_name,
 		.create = gstreamer_source_create,

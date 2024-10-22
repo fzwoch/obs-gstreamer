@@ -66,8 +66,8 @@ bool gstreamer_output_start(void *p)
 		"appsrc name=appsrc_video ! video/x-h264, width=%d, height=%d, stream-format=byte-stream ! h264parse name=video "
 		"appsrc name=appsrc_audio ! audio/mpeg, mpegversion=4, stream-format=raw, rate=%d, channels=%d, codec_data=(buffer)1190 ! aacparse name=audio "
 		"%s",
-		ovi.output_width, ovi.output_height, oai.samples_per_sec,
-		oai.speakers, obs_data_get_string(data->settings, "pipeline"));
+		ovi.output_width, ovi.output_height, oai.samples_per_sec, oai.speakers,
+		obs_data_get_string(data->settings, "pipeline"));
 
 	data->pipe = gst_parse_launch(pipe, &err);
 	g_free(pipe);
@@ -107,8 +107,7 @@ void gstreamer_output_stop(void *p, uint64_t ts)
 		gst_app_src_end_of_stream(GST_APP_SRC(data->audio));
 
 		GstBus *bus = gst_element_get_bus(data->pipe);
-		GstMessage *msg = gst_bus_timed_pop_filtered(
-			bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_EOS);
+		GstMessage *msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_EOS);
 		gst_message_unref(msg);
 		gst_object_unref(bus);
 
@@ -128,37 +127,28 @@ void gstreamer_output_encoded_packet(void *p, struct encoder_packet *packet)
 	GstBuffer *buffer = gst_buffer_new_allocate(NULL, packet->size, NULL);
 	gst_buffer_fill(buffer, 0, packet->data, packet->size);
 
-	GST_BUFFER_PTS(buffer) = packet->pts * GST_SECOND /
-				 (packet->timebase_den / packet->timebase_num);
-	GST_BUFFER_DTS(buffer) = packet->dts * GST_SECOND /
-				 (packet->timebase_den / packet->timebase_num);
+	GST_BUFFER_PTS(buffer) = packet->pts * GST_SECOND / (packet->timebase_den / packet->timebase_num);
+	GST_BUFFER_DTS(buffer) = packet->dts * GST_SECOND / (packet->timebase_den / packet->timebase_num);
 
-	gst_buffer_set_flags(buffer,
-			     packet->keyframe ? 0 : GST_BUFFER_FLAG_DELTA_UNIT);
+	gst_buffer_set_flags(buffer, packet->keyframe ? 0 : GST_BUFFER_FLAG_DELTA_UNIT);
 
-	GstElement *appsrc = packet->type == OBS_ENCODER_VIDEO ? data->video
-							       : data->audio;
+	GstElement *appsrc = packet->type == OBS_ENCODER_VIDEO ? data->video : data->audio;
 
 	gst_app_src_push_buffer(GST_APP_SRC(appsrc), buffer);
 }
 
 void gstreamer_output_get_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_string(
-		settings, "pipeline",
-		"video. ! matroskamux name=mux ! fakesink audio. ! mux.");
+	obs_data_set_default_string(settings, "pipeline", "video. ! matroskamux name=mux ! fakesink audio. ! mux.");
 }
 
 obs_properties_t *gstreamer_output_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_property_t *prop = obs_properties_add_text(
-		props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
+	obs_property_t *prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
 
-	obs_property_set_long_description(
-		prop,
-		"Use \"video\" and \"audio\" as names for the media sources.");
+	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sources.");
 
 	return props;
 }
