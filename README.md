@@ -35,6 +35,11 @@ Linux plugins can be installed in locations that follow this scheme:
 ~/.config/obs-studio/plugins/<pluginname>/bin/64bit/<pluginname>.so
 ```
 
+For Flatpak use:
+```
+flatpak install com.obsproject.Studio.Plugin.Gstreamer
+```
+
 [OBS Studio]: https://obsproject.com/
 [GStreamer run-time]: https://gstreamer.freedesktop.org/data/pkg/windows/
 [Macports]: https://www.macports.org/
