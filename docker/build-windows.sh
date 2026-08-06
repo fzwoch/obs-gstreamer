@@ -26,7 +26,11 @@ rm -f cross.txt
 
 export C_INCLUDE_PATH=/
 
-meson --buildtype release --cross-file cross.txt -Dpkg_config_path=/c/gstreamer/1.0/x86_64/lib/pkgconfig/ windows
+rm -rf gst-delayimp
+bash docker/gen-delayimp-libs.sh /c/gstreamer/1.0/mingw_x86_64/bin gst-delayimp
+
+meson --buildtype release --cross-file cross.txt -Dpkg_config_path=/c/gstreamer/1.0/x86_64/lib/pkgconfig/ \
+	-Dgst_delayimp_dir="$(pwd)/gst-delayimp" windows
 ln -sf /c/ "windows/c:"
 ninja -C windows
 

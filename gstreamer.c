@@ -25,15 +25,22 @@
 #include <windows.h>
 
 // OBS 32.2 (obsproject/obs-studio#11569) dropped %PATH% from the DLL search
-// order. That breaks GStreamer in two ways on Windows:
-//  - element support DLLs pulled in later via g_module_open() can no longer
-//    be found, so register the GStreamer install's bin directory explicitly.
-//  - if the GStreamer core DLLs end up loaded from a copy sitting next to
-//    obs-gstreamer.dll (the workaround for the LoadLibrary failure below),
-//    GStreamer's own plugin-scan path guess (relative to libgstreamer-1.0-0.dll's
-//    location) no longer resolves to the real install, so the registry comes
-//    up empty. GST_PLUGIN_PATH must be pointed at the real install explicitly.
-static void configure_gstreamer_windows_paths(void)
+// order, breaking obs-gstreamer on Windows in two ways (issue #124):
+//  - obs-gstreamer.dll's own direct GStreamer/GLib imports could no longer
+//    be resolved at LoadLibrary time at all, so the module failed to load.
+//    Fixed by delay-loading those imports (see meson.build) so the loader
+//    doesn't need them until first use, by which point this has run.
+//  - element support DLLs pulled in later via g_module_open() could no
+//    longer be found, so register the GStreamer install's bin directory
+//    explicitly, and point GST_PLUGIN_PATH at its lib\gstreamer-1.0 so the
+//    element registry scan doesn't fall back to a guess relative to wherever
+//    the delay-loaded core DLLs happened to resolve from.
+//
+// Returns false if no usable GStreamer install was found, so the caller can
+// bail out before making any delay-loaded GStreamer call - a call that fails
+// to resolve hits the delay-load runtime's default failure handling, which
+// is not a controlled error path (see mingw-w64-crt/misc/delayimp.c).
+static bool configure_gstreamer_windows_paths(void)
 {
 	static const wchar_t *const roots[] = {
 		L"GSTREAMER_1_0_ROOT_MINGW_X86_64",
@@ -55,6 +62,13 @@ static void configure_gstreamer_windows_paths(void)
 		wchar_t bin_path[MAX_PATH];
 		wcscpy(bin_path, root);
 		wcscat(bin_path, L"bin");
+
+		wchar_t core_dll[MAX_PATH];
+		wcscpy(core_dll, bin_path);
+		wcscat(core_dll, L"\\libgstreamer-1.0-0.dll");
+		if (GetFileAttributesW(core_dll) == INVALID_FILE_ATTRIBUTES)
+			continue;
+
 		if (!AddDllDirectory(bin_path))
 			continue;
 
@@ -64,8 +78,10 @@ static void configure_gstreamer_windows_paths(void)
 			wcscat(plugin_path, L"lib\\gstreamer-1.0");
 			SetEnvironmentVariableW(L"GST_PLUGIN_PATH", plugin_path);
 		}
-		return;
+		return true;
 	}
+
+	return false;
 }
 #endif
 
@@ -131,7 +147,13 @@ bool obs_module_load(void)
 	guint major, minor, micro, nano;
 
 #ifdef _WIN32
-	configure_gstreamer_windows_paths();
+	if (!configure_gstreamer_windows_paths()) {
+		blog(LOG_ERROR,
+		     "[obs-gstreamer] Could not locate a GStreamer runtime install (checked "
+		     "GSTREAMER_1_0_ROOT_MINGW_X86_64 and GSTREAMER_1_0_ROOT_MSVC_X86_64). Install the official "
+		     "GStreamer Windows runtime: https://gstreamer.freedesktop.org/download/");
+		return false;
+	}
 #endif
 
 	gst_version(&major, &minor, &micro, &nano);
