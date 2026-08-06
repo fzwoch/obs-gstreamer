@@ -21,8 +21,10 @@ Prebuilt
 ---
 
 Experimental prebuilt 64-bit Windows plugin is available. You still require the
-official [GStreamer run-time] (MinGW version) to be installed. Make sure the
-run-time `bin` path is added to Windows's `PATH` environment.
+official [GStreamer run-time] (MinGW version) to be installed. No further setup
+is needed: the plugin locates the run-time itself via the
+`GSTREAMER_1_0_ROOT_MINGW_X86_64` environment variable the official installer
+sets, so adding it to `PATH` is not required.
 
 Experimental prebuilt macOS plugin available. You still require the GStreamer
 run-time installed via [Macports] (not Homebrew).
