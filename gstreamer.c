@@ -36,18 +36,27 @@
 //    element registry scan doesn't fall back to a guess relative to wherever
 //    the delay-loaded core DLLs happened to resolve from.
 //
+// AddDllDirectory() only affects searches made under default-dirs search
+// semantics, which requires the process to have opted in via
+// SetDefaultDllDirectories() - that call is what actually dropped %PATH%
+// above, and it's the host process's call to make, not a plugin's, so we
+// don't repeat it here; we only add to the search path OBS already
+// established. The added directory stays in effect for the plugin's
+// lifetime, since GStreamer element modules can be g_module_open()'d
+// lazily at any later point, and is released in obs_module_unload().
+//
 // Returns false if no usable GStreamer install was found, so the caller can
 // bail out before making any delay-loaded GStreamer call - a call that fails
 // to resolve hits the delay-load runtime's default failure handling, which
 // is not a controlled error path (see mingw-w64-crt/misc/delayimp.c).
+static DLL_DIRECTORY_COOKIE gstreamer_dll_directory_cookie = NULL;
+
 static bool configure_gstreamer_windows_paths(void)
 {
 	static const wchar_t *const roots[] = {
 		L"GSTREAMER_1_0_ROOT_MINGW_X86_64",
 		L"GSTREAMER_1_0_ROOT_MSVC_X86_64",
 	};
-
-	SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 
 	for (size_t i = 0; i < sizeof(roots) / sizeof(roots[0]); i++) {
 		wchar_t root[MAX_PATH];
@@ -69,7 +78,8 @@ static bool configure_gstreamer_windows_paths(void)
 		if (GetFileAttributesW(core_dll) == INVALID_FILE_ATTRIBUTES)
 			continue;
 
-		if (!AddDllDirectory(bin_path))
+		gstreamer_dll_directory_cookie = AddDllDirectory(bin_path);
+		if (!gstreamer_dll_directory_cookie)
 			continue;
 
 		if (GetEnvironmentVariableW(L"GST_PLUGIN_PATH", NULL, 0) == 0) {
@@ -288,3 +298,13 @@ bool obs_module_load(void)
 
 	return true;
 }
+
+#ifdef _WIN32
+void obs_module_unload(void)
+{
+	if (gstreamer_dll_directory_cookie) {
+		RemoveDllDirectory(gstreamer_dll_directory_cookie);
+		gstreamer_dll_directory_cookie = NULL;
+	}
+}
+#endif
