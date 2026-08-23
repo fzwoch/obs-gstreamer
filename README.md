@@ -94,6 +94,26 @@ If you don't understand what is happening in these lines please check the
 GStreamer documentation as mentioned above!
 
 
+Troubleshooting
+---
+
+The properties dialog of each GStreamer source/filter shows a status line.
+If a pipeline fails to parse or start, the error message from GStreamer is
+shown there. Detailed messages are always written to the OBS log file
+(`Help` → `Log Files` → `View Current Log`).
+
+Common issues:
+
+- **"Cannot start pipeline: no element ..."** – the element is not provided by
+  your installed GStreamer runtime (check with `gst-inspect-1.0 <element>`).
+- **Black video, no errors** – the pipeline links but never produces data in a
+  format the appsink accepts; try inserting `videoconvert`/`audioconvert` and
+  check negotiated caps with `gst-launch-1.0 -v` on the command line.
+- **Applying an invalid pipeline keeps the old one running** – fix the error
+  shown in the status line and apply again.
+- **A/V drift** – make sure both branches use `use_timestamps` or that your
+  source provides sensible timestamps.
+
 Build
 ---
 
