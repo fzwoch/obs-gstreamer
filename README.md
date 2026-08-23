@@ -106,6 +106,7 @@ Common issues:
 
 - **"Cannot start pipeline: no element ..."** – the element is not provided by
   your installed GStreamer runtime (check with `gst-inspect-1.0 <element>`).
+  For typos the status line suggests similar installed element names.
 - **Black video, no errors** – the pipeline links but never produces data in a
   format the appsink accepts; try inserting `videoconvert`/`audioconvert` and
   check negotiated caps with `gst-launch-1.0 -v` on the command line.
@@ -113,6 +114,19 @@ Common issues:
   shown in the status line and apply again.
 - **A/V drift** – make sure both branches use `use_timestamps` or that your
   source provides sensible timestamps.
+
+Convenience features
+---
+
+- **Template dropdown** (source properties): fills the pipeline text with a
+  working example (test pattern, RTSP camera, SRT listener, webcam, X11 screen
+  capture). Adjust addresses and options afterwards, then hit Apply.
+- **Resume playback position when re-shown**: together with "Stop pipeline when
+  hidden" this remembers the playback position on hide and seeks back on show
+  (only for seekable streams).
+- **Verbose pipeline logging**: while enabled, QoS events, element state
+  changes and custom bus messages are written to the OBS log file — handy when
+  debugging why a pipeline misbehaves.
 
 Build
 ---
