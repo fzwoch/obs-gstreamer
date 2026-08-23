@@ -37,6 +37,7 @@ typedef struct {
 
 const char *gstreamer_output_get_name(void *type_data)
 {
+	UNUSED_PARAMETER(type_data);
 	return "GStreamer Output";
 }
 
