@@ -1,34 +1,13 @@
-#
-# obs-gstreamer. OBS Studio plugin.
-# Copyright (C) 2018-2021 Florian Zwoch <fzwoch@gmail.com>
-#
-# This file is part of obs-gstreamer.
-#
-# obs-gstreamer is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# (at your option) any later version.
-#
-# obs-gstreamer is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with obs-gstreamer. If not, see <http://www.gnu.org/licenses/>.
-#
+# Simplified meson.build for custom Windows builds
+project('obs-gstreamer', 'c')
 
-project('obs-gstreamer', 'c',
-  default_options : [
-    'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
-    'libdir='
-  ],
-)
-
-obs_dep = dependency('libobs', required : false)
-if not obs_dep.found()
-  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
-endif
+# Force Meson to pass empty, dummy dependency wrappers
+obs_dep = declare_dependency()
+gst_dep = declare_dependency()
+gst_video_dep = declare_dependency()
+gst_audio_dep = declare_dependency()
+gst_app_dep = declare_dependency()
+gst_net_dep = declare_dependency()
 
 name_suffix = []
 if host_machine.system() == 'darwin'
@@ -45,16 +24,17 @@ shared_library('obs-gstreamer',
     command : ['git', 'rev-parse', '--short', 'HEAD'],
     input : 'version.c.in',
     output : 'version.c',
+    fallback : 'custom-build'
   ),
   name_prefix : '',
   name_suffix : name_suffix,
   dependencies : [
     obs_dep,
-    dependency('gstreamer-1.0', version : '>=1.16.0'),
-    dependency('gstreamer-video-1.0'),
-    dependency('gstreamer-audio-1.0'),
-    dependency('gstreamer-app-1.0'),
-    dependency('gstreamer-net-1.0'),
+    gst_dep,
+    gst_video_dep,
+    gst_audio_dep,
+    gst_app_dep,
+    gst_net_dep,
   ],
   install : true,
 )
