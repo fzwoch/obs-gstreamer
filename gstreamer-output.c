@@ -22,6 +22,8 @@
 #include <gst/gst.h>
 #include <gst/app/app.h>
 
+#include "plugin-i18n.h"
+
 // How long to wait for EOS when stopping the output before forcing teardown.
 #define OUTPUT_EOS_TIMEOUT (3 * GST_SECOND)
 
@@ -271,9 +273,9 @@ obs_properties_t *gstreamer_output_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
 
-	obs_property_t *prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
+	obs_property_t *prop = obs_properties_add_text(props, "pipeline", T("pipeline.label"), OBS_TEXT_MULTILINE);
 
-	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sources.");
+	obs_property_set_long_description(prop, T("output.pipeline.desc"));
 
 	UNUSED_PARAMETER(data);
 	return props;

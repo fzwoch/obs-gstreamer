@@ -128,6 +128,18 @@ Convenience features
   changes and custom bus messages are written to the OBS log file — handy when
   debugging why a pipeline misbehaves.
 
+Translations
+---
+
+All UI strings are localized via OBS' standard module locale mechanism
+(`data/locale/*.ini`). Included locales: en-US, de-DE, fr-FR, es-ES, it-IT,
+nl-NL, pt-PT, sv-SE, da-DK, fi-FI, nb-NO, pl-PL, cs-CZ, hu-HU, ro-RO, el-GR,
+ru-RU, uk-UA, tr-TR. If your language is missing or a translation reads off,
+pull requests adding/correcting `data/locale/<locale>.ini` are welcome — the
+key set is defined in `data/locale/en-US.ini`. English texts are also embedded
+in the binary as fallback, so the plugin stays usable even without its data
+directory. GStreamer runtime error messages themselves are not translated.
+
 Build
 ---
 

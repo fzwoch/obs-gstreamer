@@ -25,6 +25,8 @@
 #include <gst/app/app.h>
 #include <gst/net/gstnet.h>
 
+#include "plugin-i18n.h"
+
 #ifndef MIN
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -116,12 +118,15 @@ static void suggest_element_names(const char *name, char *out, size_t size)
 	if (best[0] == NULL || best_dist[0] > 3)
 		return;
 
-	g_strlcat(out, " Did you mean ", size);
+	g_strlcat(out, " ", size);
+	g_strlcat(out, T("suggest.didyoumean"), size);
 	for (int i = 0; i < 3; i++) {
 		if (best[i] == NULL || best_dist[i] > 3)
 			break;
-		if (i > 0)
-			g_strlcat(out, " or ", size);
+		if (i > 0) {
+			g_strlcat(out, " ", size);
+			g_strlcat(out, T("suggest.or"), size);
+		}
 		g_strlcat(out, "'", size);
 		g_strlcat(out, best[i], size);
 		g_strlcat(out, "'", size);
@@ -159,7 +164,7 @@ static void format_parse_error(data_t *data, const char *context, const GError *
 	find_missing_element(err != NULL ? err->message : NULL, missing, sizeof(missing));
 	suggest_element_names(missing, hint, sizeof(hint));
 
-	snprintf(data->last_error, sizeof(data->last_error), "%s%s%s", context,
+	snprintf(data->last_error, sizeof(data->last_error), "%s %s%s", context,
 		 err != NULL ? err->message : "unknown parse error", hint);
 	blog(LOG_ERROR, "[obs-gstreamer] %s: %s", obs_source_get_name(data->source), data->last_error);
 }
@@ -754,7 +759,7 @@ static void create_pipeline(data_t *data)
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
 	if (err != NULL) {
-		format_parse_error(data, "Cannot start pipeline: ", err);
+		format_parse_error(data, T("err.cannot_start"), err);
 		g_error_free(err);
 
 		// gst_parse_launch() can return a partially built pipeline even on
@@ -1000,20 +1005,20 @@ static bool on_apply_clicked(obs_properties_t *props, obs_property_t *property, 
 }
 
 static const struct {
-	const char *label;
+	const char *label_key;
 	const char *pipeline;
 } source_presets[] = {
-	{"Test pattern (video + audio)",
+	{"preset.test",
 	 "videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
 	 "audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio."},
-	{"RTSP camera",
+	{"preset.rtsp",
 	 "rtspsrc location=rtsp://192.168.1.100:554/stream latency=200 ! decodebin ! queue ! videoconvert ! video."},
-	{"SRT listener",
+	{"preset.srt",
 	 "srtsrc uri=srt://:7001 mode=listener latency=200 ! decodebin name=dec dec. ! queue ! videoconvert ! video. "
 	 "dec. ! queue ! audioconvert ! audio."},
-	{"Webcam via V4L2",
+	{"preset.webcam",
 	 "v4l2src device=/dev/video0 ! image/jpeg ! jpegdec ! videoconvert ! video."},
-	{"Screen capture (X11)",
+	{"preset.x11",
 	 "ximagesrc use-damage=0 show-pointer=true ! video/x-raw, framerate=30/1 ! videoconvert ! video."},
 };
 
@@ -1043,7 +1048,7 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	// Runtime status line. libobs removed obs_source_set_last_error(), so we
 	// surface errors through an info text property instead. The value is
 	// stored in the settings so the properties dialog picks it up.
-	const char *status = "Pipeline stopped";
+	const char *status = T("status.stopped");
 	enum obs_text_info_type status_type = OBS_TEXT_INFO_NORMAL;
 	if (d->last_error[0] != '\0') {
 		status = d->last_error;
@@ -1051,21 +1056,21 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	} else if (d->thread != NULL) {
 		switch (d->obs_media_state) {
 		case OBS_MEDIA_STATE_OPENING:
-			status = "Opening pipeline...";
+			status = T("status.opening");
 			status_type = OBS_TEXT_INFO_WARNING;
 			break;
 		case OBS_MEDIA_STATE_BUFFERING:
-			status = "Buffering...";
+			status = T("status.buffering");
 			status_type = OBS_TEXT_INFO_WARNING;
 			break;
 		case OBS_MEDIA_STATE_PLAYING:
-			status = "Pipeline running";
+			status = T("status.running");
 			break;
 		case OBS_MEDIA_STATE_PAUSED:
-			status = "Pipeline paused";
+			status = T("status.paused");
 			break;
 		case OBS_MEDIA_STATE_ENDED:
-			status = "Pipeline ended";
+			status = T("status.ended");
 			break;
 		default:
 			break;
@@ -1078,89 +1083,74 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 	// --- Pipeline ---
 	obs_properties_t *pgroup = obs_properties_create();
 
-	prop = obs_properties_add_list(pgroup, "preset", "Template", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(prop, "(choose a template...)", "");
+	prop = obs_properties_add_list(pgroup, "preset", T("template.label"), OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(prop, T("template.none"), "");
 	for (size_t i = 0; i < sizeof(source_presets) / sizeof(source_presets[0]); i++)
-		obs_property_list_add_string(prop, source_presets[i].label, source_presets[i].pipeline);
+		obs_property_list_add_string(prop, T(source_presets[i].label_key), source_presets[i].pipeline);
 	obs_property_set_modified_callback(prop, preset_selected);
-	obs_property_set_long_description(
-		prop, "Picking an entry fills the pipeline text below; adjust addresses and options as needed.");
+	obs_property_set_long_description(prop, T("template.desc"));
 
-	prop = obs_properties_add_text(pgroup, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(
-		prop,
-		"Use \"video\" and \"audio\" as names for the media sinks, e.g.:\nv4l2src device=/dev/video0 ! videoconvert ! video.\n"
-		"pulsesrc ! audioconvert ! audio.");
+	prop = obs_properties_add_text(pgroup, "pipeline", T("pipeline.label"), OBS_TEXT_MULTILINE);
+	obs_property_set_long_description(prop, T("pipeline.desc"));
 
-	obs_properties_add_group(props, "pipeline_group", "Pipeline", OBS_GROUP_NORMAL, pgroup);
+	obs_properties_add_group(props, "pipeline_group", T("group.pipeline"), OBS_GROUP_NORMAL, pgroup);
 
 	// --- Video ---
 	obs_properties_t *vgroup = obs_properties_create();
 
-	obs_properties_add_bool(vgroup, "use_timestamps_video", "Use pipeline time stamps (video)");
-	obs_properties_add_bool(vgroup, "sync_appsink_video", "Sync appsink to clock (video)");
-	obs_properties_add_bool(vgroup, "disable_async_appsink_video",
-				"Disable asynchronous state change in appsink (video)");
-	prop = obs_properties_add_bool(vgroup, "block_video", "Limit video sink buffer to 1 frame");
-	obs_property_set_long_description(
-		prop,
-		"Restricts the appsink queue to a single buffer. Reduces latency at the cost of dropping frames when processing is slower than the source.");
-	prop = obs_properties_add_bool(vgroup, "drop_video", "Drop late video frames");
-	obs_property_set_long_description(prop, "Drop older buffers when the sink is not fast enough.");
+	obs_properties_add_bool(vgroup, "use_timestamps_video", T("timestamps.video"));
+	obs_properties_add_bool(vgroup, "sync_appsink_video", T("sync.video"));
+	obs_properties_add_bool(vgroup, "disable_async_appsink_video", T("noasync.video"));
+	prop = obs_properties_add_bool(vgroup, "block_video", T("block.video"));
+	obs_property_set_long_description(prop, T("block.video.desc"));
+	prop = obs_properties_add_bool(vgroup, "drop_video", T("drop.video"));
+	obs_property_set_long_description(prop, T("drop.generic.desc"));
 
-	obs_properties_add_group(props, "video_group", "Video", OBS_GROUP_NORMAL, vgroup);
+	obs_properties_add_group(props, "video_group", T("group.video"), OBS_GROUP_NORMAL, vgroup);
 
 	// --- Audio ---
 	obs_properties_t *agroup = obs_properties_create();
 
-	obs_properties_add_bool(agroup, "use_timestamps_audio", "Use pipeline time stamps (audio)");
-	obs_properties_add_bool(agroup, "sync_appsink_audio", "Sync appsink to clock (audio)");
-	obs_properties_add_bool(agroup, "disable_async_appsink_audio",
-				"Disable asynchronous state change in appsink (audio)");
-	prop = obs_properties_add_bool(agroup, "block_audio", "Limit audio sink buffer to 1 frame");
-	obs_property_set_long_description(prop, "See video option; applies to audio.");
-	prop = obs_properties_add_bool(agroup, "drop_audio", "Drop late audio buffers");
-	obs_property_set_long_description(prop, "Drop older buffers when the sink is not fast enough.");
+	obs_properties_add_bool(agroup, "use_timestamps_audio", T("timestamps.audio"));
+	obs_properties_add_bool(agroup, "sync_appsink_audio", T("sync.audio"));
+	obs_properties_add_bool(agroup, "disable_async_appsink_audio", T("noasync.audio"));
+	prop = obs_properties_add_bool(agroup, "block_audio", T("block.audio"));
+	obs_property_set_long_description(prop, T("block.audio.desc"));
+	prop = obs_properties_add_bool(agroup, "drop_audio", T("drop.audio"));
+	obs_property_set_long_description(prop, T("drop.generic.desc"));
 
-	obs_properties_add_group(props, "audio_group", "Audio", OBS_GROUP_NORMAL, agroup);
+	obs_properties_add_group(props, "audio_group", T("group.audio"), OBS_GROUP_NORMAL, agroup);
 
 	// --- Behavior ---
 	obs_properties_t *bgroup = obs_properties_create();
 
-	obs_properties_add_bool(bgroup, "restart_on_eos", "Try to restart when end of stream is reached");
-	obs_properties_add_bool(bgroup, "restart_on_error", "Try to restart after pipeline encountered an error");
-	obs_properties_add_int(bgroup, "restart_timeout", "Error timeout (ms)", 0, 10000, 100);
-	obs_properties_add_bool(bgroup, "stop_on_hide", "Stop pipeline when hidden");
-	prop = obs_properties_add_bool(bgroup, "resume_position", "Resume playback position when re-shown");
-	obs_property_set_long_description(
-		prop,
-		"When the pipeline is stopped on hide, remember the playback position and seek back there when the source is shown again. Only applies to seekable streams.");
-	obs_properties_add_bool(bgroup, "clear_on_end", "Clear image data after end-of-stream or error");
-	obs_properties_add_bool(bgroup, "no_buffer", "Disable buffering in OBS");
-	prop = obs_properties_add_int(bgroup, "latency", "Fixed latency (ms)", 0, 10000, 10);
-	obs_property_set_long_description(
-		prop,
-		"This sets a fixed latency for the pipeline for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given pipeline.");
+	obs_properties_add_bool(bgroup, "restart_on_eos", T("restart.eos"));
+	obs_properties_add_bool(bgroup, "restart_on_error", T("restart.error"));
+	obs_properties_add_int(bgroup, "restart_timeout", T("restart.timeout"), 0, 10000, 100);
+	obs_properties_add_bool(bgroup, "stop_on_hide", T("stop.on_hide"));
+	prop = obs_properties_add_bool(bgroup, "resume_position", T("resume.position"));
+	obs_property_set_long_description(prop, T("resume.position.desc"));
+	obs_properties_add_bool(bgroup, "clear_on_end", T("clear.on_end"));
+	obs_properties_add_bool(bgroup, "no_buffer", T("no_buffer"));
+	prop = obs_properties_add_int(bgroup, "latency", T("latency.label"), 0, 10000, 10);
+	obs_property_set_long_description(prop, T("latency.desc"));
 
-	obs_properties_add_group(props, "behavior_group", "Behavior", OBS_GROUP_NORMAL, bgroup);
+	obs_properties_add_group(props, "behavior_group", T("group.behavior"), OBS_GROUP_NORMAL, bgroup);
 
 	// --- Network clock ---
 	obs_properties_t *ngroup = obs_properties_create();
 
-	prop = obs_properties_add_text(ngroup, "ntp_server", "NTP server", OBS_TEXT_DEFAULT);
-	obs_property_set_long_description(
-		prop,
-		"This sets a NTP server for syncing the gstreamer clock to.\nUse e.g. with rtspsrc rfc7273-sync or ntp-sync options.\nLeave empty to not use a NTP server. If the server cannot be reached the pipeline continues without it.");
-	obs_properties_add_int(ngroup, "ntp_port", "NTP server port", 1, 65536, 1);
+	prop = obs_properties_add_text(ngroup, "ntp_server", T("ntp.server"), OBS_TEXT_DEFAULT);
+	obs_property_set_long_description(prop, T("ntp.server.desc"));
+	obs_properties_add_int(ngroup, "ntp_port", T("ntp.port"), 1, 65536, 1);
 
-	obs_properties_add_group(props, "network_group", "Network clock (advanced)", OBS_GROUP_NORMAL, ngroup);
+	obs_properties_add_group(props, "network_group", T("group.network"), OBS_GROUP_NORMAL, ngroup);
 
-	prop = obs_properties_add_bool(props, "verbose_bus_log", "Verbose pipeline logging");
-	obs_property_set_long_description(
-		prop,
-		"Log QoS events, element state changes and custom bus messages to the OBS log file while this source is active. Useful for debugging pipelines.");
+	prop = obs_properties_add_bool(props, "verbose_bus_log", T("verbose.log"));
+	obs_property_set_long_description(prop, T("verbose.log.desc"));
 
-	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked, data);
+	obs_properties_add_button2(props, "apply", T("apply"), on_apply_clicked, data);
 
 	return props;
 }
@@ -1176,7 +1166,7 @@ void gstreamer_source_update(void *data, obs_data_t *settings)
 	g_free(pipe_string);
 
 	if (err != NULL || test_pipe == NULL) {
-		format_parse_error((data_t *)data, "Invalid pipeline: ", err);
+		format_parse_error((data_t *)data, T("err.invalid_pipeline"), err);
 		if (err != NULL)
 			g_error_free(err);
 		if (test_pipe != NULL)

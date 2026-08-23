@@ -20,10 +20,105 @@
 
 #include <obs/obs-module.h>
 #include <gst/gst.h>
+#include <string.h>
+
+#include "plugin-i18n.h"
 
 extern const char *obs_gstreamer_version;
 
 OBS_DECLARE_MODULE()
+OBS_MODULE_USE_DEFAULT_LOCALE("obs-gstreamer", "en-US")
+
+/*
+ * Embedded English fallbacks, used when the locale file cannot be consulted
+ * (e.g. when the plugin binary is loaded without its data directory during
+ * development). Keys must mirror data/locale/en-US.ini.
+ */
+static const struct {
+	const char *key;
+	const char *text;
+} english_fallbacks[] = {
+	{"status.stopped", "Pipeline stopped"},
+	{"status.opening", "Opening pipeline..."},
+	{"status.buffering", "Buffering..."},
+	{"status.running", "Pipeline running"},
+	{"status.paused", "Pipeline paused"},
+	{"status.ended", "Pipeline ended"},
+	{"filter.ready", "Filter ready"},
+	{"err.cannot_start", "Cannot start pipeline:"},
+	{"err.invalid_pipeline", "Invalid pipeline:"},
+	{"suggest.didyoumean", "Did you mean"},
+	{"suggest.or", "or"},
+	{"group.pipeline", "Pipeline"},
+	{"group.video", "Video"},
+	{"group.audio", "Audio"},
+	{"group.behavior", "Behavior"},
+	{"group.network", "Network clock (advanced)"},
+	{"template.label", "Template"},
+	{"template.none", "(choose a template...)"},
+	{"template.desc",
+	 "Picking an entry fills the pipeline text below; adjust addresses and options as needed."},
+	{"preset.test", "Test pattern (video + audio)"},
+	{"preset.rtsp", "RTSP camera"},
+	{"preset.srt", "SRT listener"},
+	{"preset.webcam", "Webcam via V4L2"},
+	{"preset.x11", "Screen capture (X11)"},
+	{"pipeline.label", "Pipeline"},
+	{"pipeline.desc",
+	 "Use \"video\" and \"audio\" as names for the media sinks, e.g.: v4l2src device=/dev/video0 ! videoconvert ! video. / pulsesrc ! audioconvert ! audio."},
+	{"timestamps.video", "Use pipeline time stamps (video)"},
+	{"timestamps.audio", "Use pipeline time stamps (audio)"},
+	{"sync.video", "Sync appsink to clock (video)"},
+	{"sync.audio", "Sync appsink to clock (audio)"},
+	{"noasync.video", "Disable asynchronous state change in appsink (video)"},
+	{"noasync.audio", "Disable asynchronous state change in appsink (audio)"},
+	{"block.video", "Limit video sink buffer to 1 frame"},
+	{"block.video.desc",
+	 "Restricts the appsink queue to a single buffer. Reduces latency at the cost of dropping frames when processing is slower than the source."},
+	{"drop.video", "Drop late video frames"},
+	{"drop.audio", "Drop late audio buffers"},
+	{"drop.generic.desc", "Drop older buffers when the sink is not fast enough."},
+	{"block.audio", "Limit audio sink buffer to 1 frame"},
+	{"block.audio.desc", "See video option; applies to audio."},
+	{"restart.eos", "Try to restart when end of stream is reached"},
+	{"restart.error", "Try to restart after pipeline encountered an error"},
+	{"restart.timeout", "Error timeout (ms)"},
+	{"stop.on_hide", "Stop pipeline when hidden"},
+	{"resume.position", "Resume playback position when re-shown"},
+	{"resume.position.desc",
+	 "When the pipeline is stopped on hide, remember the playback position and seek back there when the source is shown again. Only applies to seekable streams."},
+	{"clear.on_end", "Clear image data after end-of-stream or error"},
+	{"no_buffer", "Disable buffering in OBS"},
+	{"latency.label", "Fixed latency (ms)"},
+	{"latency.desc",
+	 "Sets a fixed latency for the pipeline for syncing different inputs. Check the error log for clock errors if the set latency is too low. Setting 0 auto-detects the lowest possible latency for the given pipeline."},
+	{"verbose.log", "Verbose pipeline logging"},
+	{"verbose.log.desc",
+	 "Log QoS events, element state changes and custom bus messages to the OBS log file while this source is active. Useful for debugging pipelines."},
+	{"ntp.server", "NTP server"},
+	{"ntp.server.desc",
+	 "Sets an NTP server for syncing the GStreamer clock to. Use e.g. with rtspsrc rfc7273-sync or ntp-sync options. Leave empty to not use an NTP server; if the server cannot be reached the pipeline continues without it."},
+	{"ntp.port", "NTP server port"},
+	{"apply", "Apply"},
+	{"filter.pipeline.desc",
+	 "Use \"identity\" for passthru. Note: changing resolution or sample rate inside the filter is not supported."},
+	{"output.pipeline.desc", "Use \"video\" and \"audio\" as names for the media sources."},
+};
+
+const char *T(const char *key)
+{
+	const char *text = NULL;
+
+	if (obs_module_get_string(key, &text))
+		return text;
+
+	for (size_t i = 0; i < sizeof(english_fallbacks) / sizeof(english_fallbacks[0]); i++) {
+		if (strcmp(english_fallbacks[i].key, key) == 0)
+			return english_fallbacks[i].text;
+	}
+
+	return key;
+}
 
 // gstreamer-source.c
 extern const char *gstreamer_source_get_name(void *type_data);

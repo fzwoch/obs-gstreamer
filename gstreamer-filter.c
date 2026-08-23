@@ -24,6 +24,8 @@
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
 
+#include "plugin-i18n.h"
+
 // Upper bound for how long the video filter waits for a converted sample.
 // Keeps a stalled user pipeline from blocking OBS' graphics thread forever.
 #define FILTER_VIDEO_PULL_TIMEOUT (15 * GST_MSECOND)
@@ -167,18 +169,16 @@ obs_properties_t *gstreamer_filter_get_properties(void *data)
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
 	// Runtime status line; see gstreamer_source_get_properties().
-	const char *status = d->last_error[0] != '\0' ? d->last_error : "Filter ready";
+	const char *status = d->last_error[0] != '\0' ? d->last_error : T("filter.ready");
 	enum obs_text_info_type status_type =
 		d->last_error[0] != '\0' ? OBS_TEXT_INFO_ERROR : OBS_TEXT_INFO_NORMAL;
 	obs_data_set_string(d->settings, "_last_status", status);
 	obs_property_t *prop = obs_properties_add_text(props, "_last_status", NULL, OBS_TEXT_INFO);
 	obs_property_text_set_info_type(prop, status_type);
 
-	prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(
-		prop,
-		"Use \"identity\" for passthru. Note: changing resolution or sample rate inside the filter is not supported.");
-	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked, data);
+	prop = obs_properties_add_text(props, "pipeline", T("pipeline.label"), OBS_TEXT_MULTILINE);
+	obs_property_set_long_description(prop, T("filter.pipeline.desc"));
+	obs_properties_add_button2(props, "apply", T("apply"), on_apply_clicked, data);
 
 	UNUSED_PARAMETER(data);
 	return props;
