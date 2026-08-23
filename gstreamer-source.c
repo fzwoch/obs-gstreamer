@@ -24,6 +24,8 @@
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
 #include <gst/net/gstnet.h>
+#include <util/platform.h>
+
 
 typedef struct {
 	GstElement *pipe;
@@ -40,6 +42,7 @@ typedef struct {
 	GMainLoop *loop;
 	GMutex mutex;
 	GCond cond;
+	uint64_t last_frame_time;
 } data_t;
 
 static void create_pipeline(data_t *data);
@@ -188,6 +191,11 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 
 	gst_video_info_from_caps(&video_info, caps);
 	gst_buffer_map(buffer, &info, GST_MAP_READ);
+	
+	
+	data->last_frame_time = os_gettime_ns();
+
+	
 
 	struct obs_source_frame frame = {};
 
@@ -809,11 +817,77 @@ void gstreamer_source_update(void *data, obs_data_t *settings)
 	start(data);
 }
 
+
+
+
+
 void gstreamer_source_show(void *data)
 {
-	if (((data_t *)data)->pipe == NULL)
-		start(data);
+    data_t *st = (data_t *)data;
+	
+	
+
+    // case 1: The pipeline doesn't exist yet, need to start it
+    if (st->pipe == NULL) {
+        blog(LOG_INFO, "[GSTREAMER-FIX] Pipeline is NULL. Starting stream.");
+        start(data);
+        return;
+    }
+	
+	uint64_t now = os_gettime_ns(); 
+    uint64_t time_since_last_frame = now - st->last_frame_time;
+	
+	if( st->last_frame_time>0 && time_since_last_frame  >5ULL*1000000000ULL){
+        
+		blog(LOG_WARNING, "[GSTREAMER-FIX] False Playing State! No frames received for %.2f seconds. Forcing restart.", 
+             (double)time_since_last_frame / 1000000000.0);		
+		
+		//reset to not stay in the loop
+		st->last_frame_time = 0;
+
+		
+		gstreamer_source_restart(data);
+		
+		return;
+	}
+
+    // case 2: The pipeline pointer exists. lets check if it's actually playing.
+    GstState current_state = GST_STATE_NULL;
+    GstState pending_state = GST_STATE_NULL;
+    
+    // Query state with a safe 10ms timeout
+    GstStateChangeReturn ret = gst_element_get_state(st->pipe, &current_state, &pending_state, 10 * GST_MSECOND);
+
+    // skip checking this frame to avoid false-alarm restarts as gst is transitioning async
+    if (ret == GST_STATE_CHANGE_ASYNC) {
+        blog(LOG_INFO, "[GSTREAMER-FIX] Pipeline is transitioning asynchronously. Waiting...");
+        return;
+    }
+
+    // If the pipeline is stalled, failed to change state, or stuck in NULL/READY states
+    if (ret == GST_STATE_CHANGE_FAILURE || current_state <= GST_STATE_PAUSED ) {
+        
+        // Single robust log line combining integer numbers and string names safely
+        blog(LOG_WARNING, "[GSTREAMER-FIX] Pipeline is stalled! State: %d (%s), GST_STATE_PAUSED: %d. Forcing a clean restart.", 
+             (int)current_state, 
+             gst_element_state_get_name(current_state), 
+             (int)GST_STATE_PAUSED);
+             
+        stop(data);  // Clear the broken pipeline
+        start(data); // Establish a fresh RTSP handshake
+    } else {
+        // pipeline is already healthy and playing! Do nothing and avoid stutters.
+        
+        // robust log line combining integer numbers and string names safely
+        blog(LOG_INFO, "[GSTREAMER-FIX] Pipeline is already healthy! State: %d (%s), GST_STATE_PAUSED: %d. Maintaining connection.", 
+             (int)current_state, 
+             gst_element_state_get_name(current_state), 
+             (int)GST_STATE_PAUSED);
+    }
 }
+
+
+
 
 void gstreamer_source_hide(void *data)
 {
