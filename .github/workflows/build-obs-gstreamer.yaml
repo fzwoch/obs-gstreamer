@@ -116,7 +116,7 @@ jobs:
             obs-studio/build_macos/libobs/RelWithDebInfo/libobs.dylib
 
           export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
-          export C_INCLUDE_PATH="$PWD/obs-studio:$(brew --prefix)/include"
+          export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_macos/config:$(brew --prefix)/include"
           export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
 
           meson setup build --buildtype release
@@ -218,6 +218,7 @@ jobs:
             -DENABLE_SCRIPTING=OFF \
             -DENABLE_WEBSOCKET=OFF \
             -DENABLE_QSV11=OFF \
+            -DENABLE_NEW_MPEGTS_OUTPUT=OFF \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
       - name: Build libobs 🧱
@@ -228,7 +229,7 @@ jobs:
       - name: Build obs-gstreamer 🧱
         run: |
           : Build obs-gstreamer 🧱
-          export C_INCLUDE_PATH="$PWD/obs-studio"
+          export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_ubuntu/config"
           export LIBRARY_PATH="$PWD/obs-studio/build_ubuntu/libobs"
 
           meson setup build --buildtype release
@@ -402,11 +403,12 @@ jobs:
           # environment handling.
           $src = Join-Path $PWD obs-studio
           $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
+          $cfg = Join-Path $src 'build_x64\config'
 
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
 
           meson setup build --buildtype release `
-            "-Dc_args=/I$src" `
+            "-Dc_args=/I$src,/I$cfg" `
             "-Dc_link_args=/LIBPATH:$libobsLib"
           ninja -C build
 
