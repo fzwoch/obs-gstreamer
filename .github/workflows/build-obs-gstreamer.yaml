@@ -230,6 +230,7 @@ jobs:
             -DENABLE_NEW_MPEGTS_OUTPUT=OFF \
             -DENABLE_NVENC=OFF \
             -DENABLE_VLC=OFF \
+            -DENABLE_FRONTEND=OFF \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
       - name: Build libobs 🧱
@@ -436,9 +437,18 @@ jobs:
 
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
 
-          meson setup build --buildtype release `
-            "-Dc_args=['/I$src','/I$cfg']" `
-            "-Dc_link_args=['/LIBPATH:$libobsLib']"
+          # On any setup failure, surface the real compile command line from
+          # the meson log instead of its one-line summary.
+          $PSNativeCommandUseErrorActionPreference = $true
+          try {
+            meson setup build --buildtype release `
+              "-Dc_args=['/I$src','/I$cfg']" `
+              "-Dc_link_args=['/LIBPATH:$libobsLib']"
+          } catch {
+            Write-Host '=== meson-log.txt (last 150 lines) ==='
+            Get-Content build/meson-logs/meson-log.txt -Tail 150 | ForEach-Object { Write-Host $_ }
+            throw
+          }
           ninja -C build
 
       # Assemble the plugin zip by hand; the layout matches OBS's install
