@@ -476,7 +476,8 @@ jobs:
             -DENABLE_BROWSER=OFF `
             -DENABLE_SCRIPTING=OFF `
             -DENABLE_WEBSOCKET=OFF `
-            -DENABLE_PLUGINS=OFF
+            -DENABLE_PLUGINS=OFF `
+            -DENABLE_VIRTUALCAM=OFF
 
       - name: Build libobs 🧱
         run: |
