@@ -119,7 +119,10 @@ jobs:
           export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_macos/config:$(brew --prefix)/include"
           export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
 
-          meson setup build --buildtype release
+          # Resolve '-lobs' explicitly through the framework dir instead of
+          # relying on environment-based library search alone.
+          meson setup build --buildtype release \
+            "-Dc_link_args=['-F$PWD/obs-studio/build_macos/libobs/RelWithDebInfo']"
           ninja -C build
 
       - name: Package 📀
@@ -219,6 +222,7 @@ jobs:
             -DENABLE_WEBSOCKET=OFF \
             -DENABLE_QSV11=OFF \
             -DENABLE_NEW_MPEGTS_OUTPUT=OFF \
+            -DENABLE_NVENC=OFF \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
       - name: Build libobs 🧱
@@ -408,8 +412,8 @@ jobs:
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
 
           meson setup build --buildtype release `
-            "-Dc_args=/I$src,/I$cfg" `
-            "-Dc_link_args=/LIBPATH:$libobsLib"
+            "-Dc_args=['/I$src','/I$cfg']" `
+            "-Dc_link_args=['/LIBPATH:$libobsLib']"
           ninja -C build
 
       # Assemble the plugin zip by hand; the layout matches OBS's install
