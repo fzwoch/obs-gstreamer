@@ -68,6 +68,10 @@ jobs:
             --recurse-submodules --shallow-submodules \
             https://github.com/obsproject/obs-studio.git obs-studio
 
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          ln -sfn libobs obs-studio/obs
+
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: obs-studio/.deps
@@ -100,7 +104,9 @@ jobs:
       - name: Build obs-gstreamer 🧱
         run: |
           : Build obs-gstreamer 🧱
-          python3 -m pip install --upgrade meson ninja
+          # The runner's Python is PEP 668 "externally managed", so pip
+          # refuses global installs; use Homebrew tooling instead.
+          brew install meson ninja
 
           export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
           export C_INCLUDE_PATH="$PWD/obs-studio"
@@ -168,13 +174,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential ccache ninja-build pkg-config meson \
+            extra-cmake-modules \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgles2-mesa-dev libgl1-mesa-dev libegl1-mesa-dev \
-            libx11-dev libxcb1-dev libx264-dev libdrm-dev \
+            libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libx264-dev libdrm-dev \
+            libxcb-randr0-dev libxcb-shm0-dev libxcb-xinerama0-dev \
+            libxcb-composite0-dev libxcb-xfixes0-dev \
             libmbedtls-dev libcurl4-openssl-dev libjansson-dev libluajit-5.1-dev \
             libwayland-dev libpipewire-0.3-dev libpulse-dev libasound2-dev \
             libudev-dev libv4l-dev libva-dev libpci-dev libspeexdsp-dev \
-            python3-dev swig qt6-base-dev
+            libglib2.0-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev \
+            python3-dev swig \
+            qt6-base-dev qt6-svg-dev libfreetype6-dev libfontconfig-dev
 
       - name: Fetch obs-studio 📥
         run: |
@@ -182,6 +194,10 @@ jobs:
           git clone --depth 1 --branch "${OBS_REF}" \
             --recurse-submodules --shallow-submodules \
             https://github.com/obsproject/obs-studio.git obs-studio
+
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          ln -sfn libobs obs-studio/obs
 
       - name: Configure ⚙️
         run: |
@@ -295,6 +311,13 @@ jobs:
             --recurse-submodules --shallow-submodules `
             https://github.com/obsproject/obs-studio.git obs-studio
 
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          # A junction needs no admin or developer-mode rights, unlike a
+          # symbolic link.
+          New-Item -ItemType Junction -Path obs-studio\obs `
+            -Target (Join-Path $PWD obs-studio\libobs) | Out-Null
+
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: obs-studio\.deps
@@ -341,14 +364,16 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           # Point pkg-config at the GStreamer SDK and the compiler at the
-          # libobs build tree (headers live in the source root, the import
-          # library next to the built target).
+          # libobs tree (headers via <checkout>/obs -> libobs, the import
+          # library next to the built target). These must be plain process
+          # environment variables: GITHUB_ENV changes only reach *later*
+          # steps, and meson setup plus ninja run right here.
           $src = Join-Path $PWD obs-studio
           $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
 
-          "PKG_CONFIG_PATH=C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig" | Out-File -Append -Encoding oem $env:GITHUB_ENV
-          "INCLUDE=$src;$env:INCLUDE" | Out-File -Append -Encoding oem $env:GITHUB_ENV
-          "LIB=$libobsLib;$env:LIB" | Out-File -Append -Encoding oem $env:GITHUB_ENV
+          $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
+          $env:INCLUDE = "$src;$env:INCLUDE"
+          $env:LIB = "$libobsLib;$env:LIB"
 
           meson setup build --buildtype release
           ninja -C build
