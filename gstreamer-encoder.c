@@ -20,7 +20,9 @@
 
 #define _GNU_SOURCE
 
+#ifdef __linux__
 #include <dirent.h>
+#endif
 #include <obs/obs-module.h>
 #include <obs/util/dstr.h>
 #include <gst/gst.h>
