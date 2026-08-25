@@ -89,7 +89,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DENABLE_BROWSER=OFF \
             -DENABLE_SCRIPTING=OFF \
-            -DENABLE_WEBSOCKET=OFF
+            -DENABLE_WEBSOCKET=OFF \
+            -DENABLE_PLUGINS=OFF
 
       - name: Build libobs 🧱
         run: |
@@ -268,6 +269,7 @@ jobs:
             -DENABLE_NVENC=OFF \
             -DENABLE_VLC=OFF \
             -DENABLE_FRONTEND=OFF \
+            -DENABLE_PLUGINS=OFF \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
       - name: Build libobs 🧱
@@ -473,7 +475,8 @@ jobs:
             -A x64 `
             -DENABLE_BROWSER=OFF `
             -DENABLE_SCRIPTING=OFF `
-            -DENABLE_WEBSOCKET=OFF
+            -DENABLE_WEBSOCKET=OFF `
+            -DENABLE_PLUGINS=OFF
 
       - name: Build libobs 🧱
         run: |
