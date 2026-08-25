@@ -367,7 +367,9 @@ jobs:
 
           $gstPc = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig/gstreamer-1.0.pc'
           if (-not (Test-Path $gstPc)) {
-            throw "GStreamer .pc missing after install. msiexec=[$($summaryMsi -join ', ')] sizes=[$sizes] registered=[$registered] tree=[$tree]"
+            # Not fatal here: the SDK may have landed on another drive via
+            # MSI ROOTDRIVE; the build step locates gstreamer-1.0.pc itself.
+            Write-Host "::warning::no .pc under C:\gstreamer — build step will search all drives"
           }
 
       - name: Fetch obs-studio 📥
@@ -479,11 +481,17 @@ jobs:
           # drive-colon/backslash form in PKG_CONFIG_PATH.
           $env:PKG_CONFIG_PATH = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig'
 
-          # Fail loudly if the devel MSI did not actually land.
-          $gstPc = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig/gstreamer-1.0.pc'
-          if (-not (Test-Path $gstPc)) {
-            throw "GStreamer pkg-config metadata missing: $gstPc"
+          # The MSIs register but land under the MSI ROOTDRIVE (largest
+          # free disk), not necessarily C:\ — locate the .pc files directly.
+          $pcFile = Get-ChildItem C:\,D:\ -Recurse -Filter 'gstreamer-1.0.pc' `
+            -Depth 6 -ErrorAction SilentlyContinue |
+            Where-Object FullName -like '*msvc_x86_64*' | Select-Object -First 1
+          if (-not $pcFile) {
+            throw 'gstreamer-1.0.pc not found anywhere on C: or D: after install'
           }
+          Write-Host "gstreamer .pc -> $($pcFile.FullName)"
+          $env:PKG_CONFIG_PATH = $pcFile.DirectoryName
+
           Write-Host "pkg-config -> $((Get-Command pkg-config.exe -ErrorAction SilentlyContinue).Source ?? 'NOT FOUND')"
           & pkg-config --modversion gstreamer-1.0
           if ($LASTEXITCODE -ne 0) {
