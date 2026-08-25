@@ -105,8 +105,10 @@ jobs:
         run: |
           : Build obs-gstreamer 🧱
           # The runner's Python is PEP 668 "externally managed", so pip
-          # refuses global installs; use Homebrew tooling instead.
-          brew install meson ninja
+          # refuses global installs; use Homebrew tooling instead. SIMDe is
+          # needed because the plugin compiles against libobs' sse-intrin.h
+          # directly (obs-deps' copy is only wired into OBS's own build).
+          brew install meson ninja simde
 
           # The Xcode generator builds libobs as a framework, which plain
           # '-lobs' cannot resolve; expose the inner binary as a dylib.
@@ -114,7 +116,7 @@ jobs:
             obs-studio/build_macos/libobs/RelWithDebInfo/libobs.dylib
 
           export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
-          export C_INCLUDE_PATH="$PWD/obs-studio"
+          export C_INCLUDE_PATH="$PWD/obs-studio:$(brew --prefix)/include"
           export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
 
           meson setup build --buildtype release
@@ -190,7 +192,8 @@ jobs:
             libwayland-dev libpipewire-0.3-dev libpulse-dev libasound2-dev \
             libudev-dev libv4l-dev libva-dev libpci-dev libspeexdsp-dev \
             libglib2.0-dev \
-            libavcodec-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev \
+            libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
+            libavutil-dev libswresample-dev libswscale-dev \
             python3-dev swig \
             qt6-base-dev qt6-svg-dev libfreetype6-dev libfontconfig-dev
 
@@ -303,12 +306,16 @@ jobs:
 
           python -m pip install --upgrade meson ninja
 
-          # Official GStreamer MSVC SDK (runtime + devel in one installer).
-          $gstMsi = "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi"
-          Invoke-WebRequest -Uri `
-            "https://gstreamer.freedesktop.org/data/pkg/windows/$($env:GST_VERSION)/msvc/$gstMsi" `
-            -OutFile $gstMsi
-          Start-Process msiexec -ArgumentList "/i $gstMsi /qn /norestart INSTALLLEVEL=100" -Wait
+          # Official GStreamer MSVC SDK: the runtime installer ships only
+          # DLLs — the devel installer adds the headers, import libraries
+          # and pkg-config metadata (.pc) that meson resolves through.
+          $base = "https://gstreamer.freedesktop.org/data/pkg/windows/$($env:GST_VERSION)/msvc"
+          foreach ($gstMsi in @(
+              "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
+              "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
+            Invoke-WebRequest -Uri "$base/$gstMsi" -OutFile $gstMsi
+            Start-Process msiexec -ArgumentList "/i $gstMsi /qn /norestart INSTALLLEVEL=100" -Wait
+          }
 
       - name: Fetch obs-studio 📥
         run: |
