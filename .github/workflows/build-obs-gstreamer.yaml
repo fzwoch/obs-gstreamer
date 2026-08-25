@@ -119,10 +119,16 @@ jobs:
           export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_macos/config:$(brew --prefix)/include"
           export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
 
+          # Hosted macOS runners are arm64-only: without an explicit -arch
+          # the x86_64 matrix leg would compile host-native arm64 objects
+          # and fail to link the x86_64-only libobs.
+          arch='${{ matrix.arch }}'
+
           # Resolve '-lobs' explicitly through the framework dir instead of
           # relying on environment-based library search alone.
           meson setup build --buildtype release \
-            "-Dc_link_args=['-F$PWD/obs-studio/build_macos/libobs/RelWithDebInfo']"
+            "-Dc_args=['-arch', '$arch']" \
+            "-Dc_link_args=['-arch', '$arch', '-F$PWD/obs-studio/build_macos/libobs/RelWithDebInfo']"
           ninja -C build
 
       - name: Package 📀
@@ -223,6 +229,7 @@ jobs:
             -DENABLE_QSV11=OFF \
             -DENABLE_NEW_MPEGTS_OUTPUT=OFF \
             -DENABLE_NVENC=OFF \
+            -DENABLE_VLC=OFF \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
       - name: Build libobs 🧱
@@ -401,6 +408,11 @@ jobs:
             }
           }
 
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            throw 'cl.exe not on PATH after vcvars import'
+          }
+          Write-Host "cl.exe -> $((Get-Command cl.exe).Source)"
+
           # Point pkg-config at the GStreamer SDK, and bake the libobs tree
           # (<checkout>/obs -> libobs headers, import library next to the
           # built target) into every compiler check, independent of
@@ -408,6 +420,19 @@ jobs:
           $src = Join-Path $PWD obs-studio
           $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
           $cfg = Join-Path $src 'build_x64\config'
+
+          # Fail loudly here rather than through meson's cryptic header
+          # error: junction present? generated config present? does cl
+          # itself accept the include paths?
+          if (-not (Test-Path (Join-Path $src 'obs\obs.h'))) {
+            throw "libobs alias missing: $(Join-Path $src 'obs\obs.h')"
+          }
+          if (-not (Test-Path (Join-Path $cfg 'obsconfig.h'))) {
+            throw "generated config missing: $(Join-Path $cfg 'obsconfig.h')"
+          }
+          Set-Content -Path probe.c -Value "#include <obs/obs.h>`nint main(void){return 0;}"
+          cl /nologo /c probe.c "/I$src" "/I$cfg" /Fo"$env:TEMP\probe.obj"
+          Remove-Item probe.c
 
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
 
