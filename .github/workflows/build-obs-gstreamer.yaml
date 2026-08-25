@@ -436,6 +436,15 @@ jobs:
           New-Item -ItemType Directory -Path obs-studio | Out-Null
           tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
 
+          # The virtualcam module is added unconditionally by
+          # architecture.cmake and hard-requires the libdshowcapture
+          # submodule, which source archives do not carry. Remove it for
+          # this libobs-only build; -DENABLE_VIRTUALCAM=OFF proved not to
+          # suppress it through the preset path.
+          (Get-Content obs-studio\cmake\windows\architecture.cmake) |
+            Where-Object { $_ -notmatch 'win-dshow/virtualcam-module' } |
+            Set-Content obs-studio\cmake\windows\architecture.cmake
+
           # The plugin includes libobs headers via their installed layout
           # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
           # A junction needs no admin or developer-mode rights, unlike a
