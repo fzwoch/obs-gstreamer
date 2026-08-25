@@ -327,10 +327,10 @@ jobs:
               "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
               "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
             Invoke-WebRequest -Uri "$base/$gstMsi" -OutFile $gstMsi
+            # REINSTALL=ALL + vomus: if the runner image has the product
+            # already registered (but its files stripped), a plain /i
+            # exits 0 as a no-op reconfigure — force files back onto disk.
             $p = Start-Process msiexec `
-              # REINSTALL=ALL + vomus: if the runner image has the product
-              # already registered (but its files stripped), a plain /i
-              # exits 0 as a no-op reconfigure — force files back onto disk.
               -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 REINSTALL=ALL REINSTALLMODE=vomus /l*v `"$PWD\$gstMsi.install.log`"" `
               -Wait -PassThru
             # 3010 = success, reboot required
