@@ -327,8 +327,20 @@ jobs:
               "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
               "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
             Invoke-WebRequest -Uri "$base/$gstMsi" -OutFile $gstMsi
-            Start-Process msiexec -ArgumentList "/i $gstMsi /qn /norestart INSTALLLEVEL=100" -Wait
+            $p = Start-Process msiexec `
+              -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 /l*v `"$PWD\$gstMsi.install.log`"" `
+              -Wait -PassThru
+            # 3010 = success, reboot required
+            if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
+              Get-Content "$gstMsi.install.log" -Tail 40 |
+                ForEach-Object { Write-Host $_ }
+              throw "msiexec failed for ${gstMsi}: exit code $($p.ExitCode)"
+            }
           }
+
+          # Make the resulting SDK layout visible in the run log.
+          Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
+            ForEach-Object { Write-Host $_.FullName }
 
       - name: Fetch obs-studio 📥
         run: |
