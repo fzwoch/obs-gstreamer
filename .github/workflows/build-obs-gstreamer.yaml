@@ -175,6 +175,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential ccache ninja-build pkg-config meson \
             extra-cmake-modules \
+            libsimde-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgles2-mesa-dev libgl1-mesa-dev libegl1-mesa-dev \
             libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libx264-dev libdrm-dev \
@@ -363,19 +364,20 @@ jobs:
           # Build obs-gstreamer 🧱
           $ErrorActionPreference = 'Stop'
 
-          # Point pkg-config at the GStreamer SDK and the compiler at the
-          # libobs tree (headers via <checkout>/obs -> libobs, the import
-          # library next to the built target). These must be plain process
-          # environment variables: GITHUB_ENV changes only reach *later*
-          # steps, and meson setup plus ninja run right here.
+          # Point pkg-config at the GStreamer SDK. For libobs, do NOT rely
+          # on INCLUDE/LIB: cl.exe is not on PATH here, so meson initializes
+          # the MSVC environment itself (auto-vcvars) and replaces those
+          # variables during compiler detection. Pass the libobs tree as
+          # explicit compiler/linker arguments instead — meson applies them
+          # to every check, including the <obs/obs.h> header probe.
           $src = Join-Path $PWD obs-studio
           $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
 
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
-          $env:INCLUDE = "$src;$env:INCLUDE"
-          $env:LIB = "$libobsLib;$env:LIB"
 
-          meson setup build --buildtype release
+          meson setup build --buildtype release `
+            "-Dc_args=/I$src" `
+            "-Dc_link_args=/LIBPATH:$libobsLib"
           ninja -C build
 
       # Assemble the plugin zip by hand; the layout matches OBS's install
