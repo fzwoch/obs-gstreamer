@@ -331,6 +331,7 @@ jobs:
               -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 /l*v `"$PWD\$gstMsi.install.log`"" `
               -Wait -PassThru
             # 3010 = success, reboot required
+            Write-Host "$gstMsi -> msiexec exit $($p.ExitCode)"
             if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
               Get-Content "$gstMsi.install.log" -Tail 40 |
                 ForEach-Object { Write-Host $_ }
@@ -338,9 +339,25 @@ jobs:
             }
           }
 
+          # Show what actually happened: downloaded sizes and where the
+          # installer claims to have put things.
+          Get-ChildItem -File *.msi* | ForEach-Object {
+            Write-Host "$($_.Name) $([math]::Round($_.Length / 1MB))MB"
+          }
+          foreach ($log in Get-ChildItem -File *.install.log) {
+            Write-Host "== $($log.Name) =="
+            Select-String -Path $log.FullName `
+              -Pattern 'INSTALLDIR|TARGETDIR|Manufacturer|ProductCode|MainEngineThread|Installation completed' |
+              Select-Object -Last 8 | ForEach-Object { Write-Host $_.Line }
+          }
+
           # Make the resulting SDK layout visible in the run log.
-          Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
-            ForEach-Object { Write-Host $_.FullName }
+          if (Test-Path C:\gstreamer\1.0) {
+            Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
+              ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host '::warning::C:\gstreamer\1.0 does not exist after installation'
+          }
 
       - name: Fetch obs-studio 📥
         run: |
