@@ -58,3 +58,5 @@ shared_library('obs-gstreamer',
   ],
   install : true,
 )
+
+install_subdir('data', install_dir: 'share/obs/plugins/obs-gstreamer')

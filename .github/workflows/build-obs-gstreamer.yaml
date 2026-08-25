@@ -1,0 +1,685 @@
+name: Build obs-gstreamer Plugin
+
+on:
+  push:
+    branches: [master, main, dev]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # obs-studio tag the plugin is built against in CI. Bump when the plugin
+  # adopts APIs from a newer OBS release.
+  OBS_REF: 32.2.0
+  # GStreamer SDK version for the macOS/Windows builds. Note:
+  # gstreamer.freedesktop.org prunes superseded point releases, so this must
+  # stay on a version still hosted on the server.
+  GST_VERSION: 1.24.13
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-event:
+    name: Event Data 🔎
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.setup.outputs.version }}
+    steps:
+      - name: Check Event Data ☑️
+        id: setup
+        run: |
+          : Check Event Data ☑️
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+
+          if [[ ${GITHUB_REF_NAME} =~ ^v[0-9]+(\.[0-9]+){0,3}(-.+)?$ ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="ci-$(date -u +%Y%m%d)-g${GITHUB_SHA::9}"
+          fi
+
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+  macos-build:
+    name: macOS 🍏 (${{ matrix.arch }})
+    runs-on: macos-latest
+    needs: check-event
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x86_64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Build libobs from the pinned obs-studio source; the plugin links
+      # against the build tree directly (modern OBS ships no libobs.pc).
+      - name: Fetch obs-studio 📥
+        run: |
+          : Fetch obs-studio 📥
+          # SHA-pinned source archive instead of a git clone: smaller,
+          # verifiable, and submodules are unneeded with browser/websocket/
+          # scripting disabled.
+          curl --fail -L --retry 3 -o obs-studio.tar.gz \
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/${OBS_REF}.tar.gz"
+          echo "c333e4a7d5c4a94c7bb4833f046368e0ac5e981fb3964ca4981b23be1dfbda4a  obs-studio.tar.gz" | shasum -a 256 -c -
+          mkdir obs-studio
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
+
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          ln -sfn libobs obs-studio/obs
+
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: obs-studio/.deps
+          key: macos-deps-${{ matrix.arch }}-${{ env.OBS_REF }}
+
+      - name: Configure ⚙️
+        run: |
+          : Configure ⚙️
+          cmake -S obs-studio --preset macos \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DENABLE_BROWSER=OFF \
+            -DENABLE_SCRIPTING=OFF \
+            -DENABLE_WEBSOCKET=OFF \
+            -DENABLE_PLUGINS=OFF
+
+      - name: Build libobs 🧱
+        run: |
+          : Build libobs 🧱
+          cmake --build obs-studio/build_macos \
+            --target libobs --config RelWithDebInfo --parallel
+
+      # Official GStreamer SDK ships a universal (arm64 + x86_64) framework,
+      # so both matrix legs can link against the same installation.
+      - name: Install GStreamer 🛍️
+        run: |
+          : Install GStreamer 🛍️
+          curl --fail -L --retry 3 -o gst-devel.pkg \
+            "https://gstreamer.freedesktop.org/data/pkg/osx/${GST_VERSION}/gstreamer-1.0-devel-${GST_VERSION}-universal.pkg"
+          sudo installer -pkg gst-devel.pkg -target /
+
+      - name: Restore ccache 🔄
+        id: ccache
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.arch }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-macos-${{ matrix.arch }}-
+
+      - name: Build obs-gstreamer 🧱
+        run: |
+          : Build obs-gstreamer 🧱
+          # The runner's Python is PEP 668 "externally managed", so pip
+          # refuses global installs; use Homebrew tooling instead. SIMDe is
+          # needed because the plugin compiles against libobs' sse-intrin.h
+          # directly (obs-deps' copy is only wired into OBS's own build).
+          brew install meson ninja simde ccache
+
+          # The Xcode generator builds libobs as a framework, which plain
+          # '-lobs' cannot resolve; expose the inner binary as a dylib.
+          ln -sfn libobs.framework/libobs \
+            obs-studio/build_macos/libobs/RelWithDebInfo/libobs.dylib
+
+          export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+          export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_macos/config:$(brew --prefix)/include"
+          export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
+
+          # Hosted macOS runners are arm64-only: without an explicit -arch
+          # the x86_64 matrix leg would compile host-native arm64 objects
+          # and fail to link the x86_64-only libobs.
+          arch='${{ matrix.arch }}'
+
+          export CCACHE_DIR="$PWD/.ccache"
+          export CCACHE_MAXSIZE=200M
+          export CC="ccache clang"
+
+          # Resolve '-lobs' explicitly through the framework dir instead of
+          # relying on environment-based library search alone.
+          meson setup build --buildtype release \
+            "-Dc_args=['-arch', '$arch']" \
+            "-Dc_link_args=['-arch', '$arch', '-F$PWD/obs-studio/build_macos/libobs/RelWithDebInfo']"
+          ninja -C build
+          ccache --show-stats
+
+      - name: Package 📀
+        run: |
+          : Package 📀
+          version='${{ needs.check-event.outputs.version }}'
+
+          mkdir -p obs-gstreamer.plugin/Contents/MacOS \
+                   obs-gstreamer.plugin/Contents/Resources
+          cp build/obs-gstreamer.so obs-gstreamer.plugin/Contents/MacOS/obs-gstreamer
+          cp -R data/locale obs-gstreamer.plugin/Contents/Resources/locale
+
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0">'
+            echo '<dict>'
+            echo '  <key>CFBundleExecutable</key>'
+            echo '  <string>obs-gstreamer</string>'
+            echo '  <key>CFBundleIdentifier</key>'
+            echo '  <string>dev.fzwoch.obs-gstreamer</string>'
+            echo '  <key>CFBundlePackageType</key>'
+            echo '  <string>BNDL</string>'
+            echo '</dict>'
+            echo '</plist>'
+          } > obs-gstreamer.plugin/Contents/Info.plist
+
+          codesign --force --deep -s - obs-gstreamer.plugin
+
+          zip --symlinks -r "obs-gstreamer-${version}-macos-${{ matrix.arch }}.zip" obs-gstreamer.plugin
+
+      - name: Upload Artifacts 📡
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: obs-gstreamer-macos-${{ matrix.arch }}
+          path: obs-gstreamer-*-macos-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+      - name: Save ccache 💾
+        if: success() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.arch }}-${{ github.run_id }}
+
+      - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        if: github.event_name != 'pull_request'
+        with:
+          path: obs-studio/.deps
+          key: macos-deps-${{ matrix.arch }}-${{ env.OBS_REF }}
+
+  linux-build:
+    name: Linux 🐧 (x86_64)
+    runs-on: ubuntu-24.04
+    needs: check-event
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Dependencies 🛍️
+        run: |
+          : Install Dependencies 🛍️
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ccache ninja-build pkg-config meson \
+            extra-cmake-modules \
+            libsimde-dev uthash-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgles2-mesa-dev libgl1-mesa-dev libegl1-mesa-dev \
+            libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libx264-dev libdrm-dev \
+            libxcb-randr0-dev libxcb-shm0-dev libxcb-xinerama0-dev \
+            libxcb-composite0-dev libxcb-xfixes0-dev \
+            libmbedtls-dev libcurl4-openssl-dev libjansson-dev libluajit-5.1-dev \
+            libwayland-dev libpipewire-0.3-dev libpulse-dev libasound2-dev \
+            libudev-dev libv4l-dev libva-dev libpci-dev libspeexdsp-dev \
+            libglib2.0-dev \
+            libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
+            libavutil-dev libswresample-dev libswscale-dev \
+            python3-dev swig \
+            qt6-base-dev qt6-svg-dev libfreetype6-dev libfontconfig-dev
+
+      - name: Restore ccache 🔄
+        id: ccache
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-linux-x86_64-${{ github.run_id }}
+          restore-keys: |
+            ccache-linux-x86_64-
+
+      - name: Fetch obs-studio 📥
+        run: |
+          : Fetch obs-studio 📥
+          curl --fail -L --retry 3 -o obs-studio.tar.gz \
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/${OBS_REF}.tar.gz"
+          echo "c333e4a7d5c4a94c7bb4833f046368e0ac5e981fb3964ca4981b23be1dfbda4a  obs-studio.tar.gz" | shasum -a 256 -c -
+          mkdir obs-studio
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
+
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          ln -sfn libobs obs-studio/obs
+
+      - name: Configure ⚙️
+        run: |
+          : Configure ⚙️
+          # Skip Intel QSV encoder; it would require libvpl-dev and is
+          # unrelated to this plugin.
+          cmake -S obs-studio --preset ubuntu-ci \
+            -DENABLE_BROWSER=OFF \
+            -DENABLE_SCRIPTING=OFF \
+            -DENABLE_WEBSOCKET=OFF \
+            -DENABLE_QSV11=OFF \
+            -DENABLE_NEW_MPEGTS_OUTPUT=OFF \
+            -DENABLE_NVENC=OFF \
+            -DENABLE_VLC=OFF \
+            -DENABLE_FRONTEND=OFF \
+            -DENABLE_PLUGINS=OFF \
+            -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+
+      - name: Build libobs 🧱
+        run: |
+          : Build libobs 🧱
+          cmake --build obs-studio/build_ubuntu --target libobs --parallel "$(nproc)"
+
+      - name: Build obs-gstreamer 🧱
+        run: |
+          : Build obs-gstreamer 🧱
+          export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_ubuntu/config"
+          export LIBRARY_PATH="$PWD/obs-studio/build_ubuntu/libobs"
+
+          export CCACHE_DIR="$PWD/.ccache"
+          export CCACHE_MAXSIZE=200M
+          export CC="ccache cc"
+
+          meson setup build --buildtype release
+          ninja -C build
+          ccache --show-stats
+
+      # Assemble the FHS layout by hand so the package carries only the
+      # plugin, not an entire OBS installation.
+      - name: Package 📀
+        run: |
+          : Package 📀
+          set -e
+          version='${{ needs.check-event.outputs.version }}'
+
+          # Debian versions must start with a digit; tag builds already do,
+          # so this only affects the generated ci-* versions.
+          case "${version}" in
+            [0-9]*) deb_version="${version}" ;;
+            *) deb_version="0.${version}" ;;
+          esac
+
+          pkg=pkg/usr
+          mkdir -p "${pkg}/lib/obs-plugins" \
+                   "${pkg}/share/obs/obs-plugins/obs-gstreamer"
+
+          cp -a build/obs-gstreamer.so "${pkg}/lib/obs-plugins/"
+          cp -a data/locale "${pkg}/share/obs/obs-plugins/obs-gstreamer/"
+
+          # Portable archive.
+          tar -C pkg -czf "obs-gstreamer-${version}-ubuntu-x86_64.tar.gz" usr
+
+          # Debian package with the same layout plus a control file.
+          mkdir -p pkg/DEBIAN
+          {
+            echo 'Package: obs-gstreamer'
+            echo "Version: ${deb_version}"
+            echo 'Architecture: amd64'
+            echo 'Maintainer: Filip Hanes <filip@hanes.dev>'
+            echo 'Depends: obs-studio, gstreamer1.0-plugins-base'
+            echo 'Recommends: gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav'
+            echo 'Section: video'
+            echo 'Priority: optional'
+            echo 'Description: GStreamer pipelines as sources, filters, encoders and output for OBS Studio'
+            echo ' Feed arbitrary gst-launch pipelines into OBS Studio.'
+          } > pkg/DEBIAN/control
+          dpkg-deb --root-owner-group -Zxz --build pkg \
+            "obs-gstreamer_${deb_version}_amd64.deb"
+
+      - name: Upload Artifacts 📡
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: obs-gstreamer-linux-x86_64
+          path: |
+            obs-gstreamer-*-ubuntu-x86_64.tar.gz
+            obs-gstreamer_*_amd64.deb
+          if-no-files-found: error
+
+      - name: Save ccache 💾
+        if: success() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-linux-x86_64-${{ github.run_id }}
+
+  windows-build:
+    name: Windows 🪟 (x64)
+    runs-on: windows-2025
+    needs: check-event
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Dependencies 🛍️
+        run: |
+          # Install Dependencies 🛍️
+          $ErrorActionPreference = 'Stop'
+
+          # pkg-config is required for meson to resolve the GStreamer SDK.
+          choco install pkgconfiglite -y --no-progress
+
+          python -m pip install --upgrade meson ninja
+
+          # Official GStreamer MSVC SDK: the runtime installer ships only
+          # DLLs — the devel installer adds the headers, import libraries
+          # and pkg-config metadata (.pc) that meson resolves through.
+          $base = "https://gstreamer.freedesktop.org/data/pkg/windows/$($env:GST_VERSION)/msvc"
+          $summaryMsi = @()
+          foreach ($gstMsi in @(
+              "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
+              "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
+            Invoke-WebRequest -Uri "$base/$gstMsi" -OutFile $gstMsi
+            # ADDLOCAL=ALL: INSTALLLEVEL alone can select zero features
+            # (levels above the threshold) yielding a successful no-op;
+            # explicit selection forces every component onto disk.
+            $p = Start-Process msiexec `
+              -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 ADDLOCAL=ALL /l*v `"$PWD\$gstMsi.install.log`"" `
+              -Wait -PassThru
+            # 3010 = success, reboot required
+            Write-Host "$gstMsi -> msiexec exit $($p.ExitCode)"
+            $summaryMsi += "$($gstMsi -replace 'gstreamer-1.0-', ''):$($p.ExitCode)"
+            if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
+              Get-Content "$gstMsi.install.log" -Tail 40 |
+                ForEach-Object { Write-Host $_ }
+              throw "msiexec failed for ${gstMsi}: exit code $($p.ExitCode)"
+            }
+          }
+
+          # Show what actually happened: downloaded sizes, where Windows
+          # thinks GStreamer products live, and where files really are.
+          # Everything is folded into thrown messages so it survives
+          # truncated CI log excerpts.
+          $sizes = (Get-ChildItem -File *.msi* |
+            ForEach-Object { "$($_.Name)=$([math]::Round($_.Length / 1MB))MB" }) -join ', '
+          $registered = (Get-ItemProperty `
+            HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*,
+            HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*,
+            HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\* `
+            -ErrorAction SilentlyContinue |
+            Where-Object DisplayName -like '*GStreamer*' |
+            ForEach-Object { "$($_.DisplayName)@$($_.InstallLocation)" }) -join '; '
+          $tree = if (Test-Path C:\gstreamer\1.0) {
+            (Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
+              ForEach-Object { $_.FullName }) -join '; '
+          } else { 'C:\gstreamer\1.0 ABSENT' }
+          Write-Host "sizes: $sizes"
+          Write-Host "registered: $registered"
+          Write-Host "tree: $tree"
+
+          $gstPc = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig/gstreamer-1.0.pc'
+          if (-not (Test-Path $gstPc)) {
+            # Not fatal here: the SDK may have landed on another drive via
+            # MSI ROOTDRIVE; the build step locates gstreamer-1.0.pc itself.
+            Write-Host "::warning::no .pc under C:\gstreamer — build step will search all drives"
+          }
+
+      - name: Fetch obs-studio 📥
+        run: |
+          # Fetch obs-studio 📥
+          Invoke-WebRequest -Uri `
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/$($env:OBS_REF).tar.gz" `
+            -OutFile obs-studio.tar.gz
+          $obsHash = (Get-FileHash obs-studio.tar.gz -Algorithm SHA256).Hash
+          if ($obsHash -ne 'C333E4A7D5C4A94C7BB4833F046368E0AC5E981FB3964CA4981B23BE1DFBDA4A') {
+            throw "obs-studio tarball checksum mismatch: $obsHash"
+          }
+          New-Item -ItemType Directory -Path obs-studio | Out-Null
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
+
+          # The virtualcam module is added unconditionally by
+          # architecture.cmake and hard-requires the libdshowcapture
+          # submodule, which source archives do not carry. Remove it for
+          # this libobs-only build; -DENABLE_VIRTUALCAM=OFF proved not to
+          # suppress it through the preset path.
+          (Get-Content obs-studio\cmake\windows\architecture.cmake) |
+            Where-Object { $_ -notmatch 'win-dshow/virtualcam-module' } |
+            Set-Content obs-studio\cmake\windows\architecture.cmake
+
+          # The plugin includes libobs headers via their installed layout
+          # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
+          # A junction needs no admin or developer-mode rights, unlike a
+          # symbolic link.
+          New-Item -ItemType Junction -Path obs-studio\obs `
+            -Target (Join-Path $PWD obs-studio\libobs) | Out-Null
+
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: obs-studio\.deps
+          key: windows-deps-x64-${{ env.OBS_REF }}
+
+      # The presets pin the VS2026 generator used on obsproject runners,
+      # but hosted images vary over time, so detect whichever Visual Studio
+      # has C++ tools and select the matching generator. Dependencies
+      # (obs-deps, Qt6) are downloaded automatically during configure.
+      - name: Configure ⚙️
+        run: |
+          # Configure ⚙️
+          $ErrorActionPreference = 'Stop'
+
+          $vswhere = Join-Path ${Env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installVersion = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationVersion
+          if (-not $installVersion) { throw 'No Visual Studio C++ toolset found' }
+
+          $generator = @{
+            17 = 'Visual Studio 17 2022'
+            18 = 'Visual Studio 18 2026'
+          }[([version]$installVersion).Major]
+          if (-not $generator) { throw "Unsupported Visual Studio version: $installVersion" }
+          Write-Host "::notice::Using generator '$generator' (VS $installVersion)"
+
+          cmake -S obs-studio --preset windows-ci-x64 `
+            -G $generator `
+            -A x64 `
+            -DENABLE_BROWSER=OFF `
+            -DENABLE_SCRIPTING=OFF `
+            -DENABLE_WEBSOCKET=OFF `
+            -DENABLE_PLUGINS=OFF `
+            -DENABLE_VIRTUALCAM=OFF
+
+      - name: Build libobs 🧱
+        run: |
+          # Build libobs 🧱
+          cmake --build obs-studio\build_x64 `
+            --config RelWithDebInfo --target libobs --parallel
+
+      - name: Build obs-gstreamer 🧱
+        run: |
+          # Build obs-gstreamer 🧱
+          $ErrorActionPreference = 'Stop'
+
+          # Select MSVC explicitly: hosted runners expose Strawberry
+          # Perl's gcc/cc on PATH and meson would otherwise pick that
+          # toolchain (gcc silently ignores INCLUDE/LIB, and chokes on
+          # MSVC-style /I arguments). Import the Visual Studio developer
+          # environment so cl.exe is what meson finds first.
+          $ErrorActionPreference = 'Stop'
+
+          $vswhere = Join-Path ${Env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstall = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $vsInstall) { throw 'No Visual Studio C++ toolset found' }
+
+          $vcvars = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'
+          cmd /s /c "`"$vcvars`" && set" | ForEach-Object {
+            if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+              Set-Item -Path "Env:$($Matches[1])" -Value $Matches[2]
+            }
+          }
+
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            throw 'cl.exe not on PATH after vcvars import'
+          }
+          Write-Host "cl.exe -> $((Get-Command cl.exe).Source)"
+
+          # Point pkg-config at the GStreamer SDK, and bake the libobs tree
+          # (<checkout>/obs -> libobs headers, import library next to the
+          # built target) into every compiler check, independent of
+          # environment handling.
+          $src = Join-Path $PWD obs-studio
+          $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
+          $cfg = Join-Path $src 'build_x64\config'
+
+          # Fail loudly here rather than through meson's cryptic header
+          # error: junction present? generated config present? does cl
+          # itself accept the include paths?
+          if (-not (Test-Path (Join-Path $src 'obs\obs.h'))) {
+            throw "libobs alias missing: $(Join-Path $src 'obs\obs.h')"
+          }
+          if (-not (Test-Path (Join-Path $cfg 'obsconfig.h'))) {
+            throw "generated config missing: $(Join-Path $cfg 'obsconfig.h')"
+          }
+          Set-Content -Path probe.c -Value "#include <obs/obs.h>`nint main(void){return 0;}"
+          cl /nologo /c probe.c "/I$src" "/I$cfg" /Fo"$env:TEMP\probe.obj"
+          Remove-Item probe.c
+
+          # Forward slashes: Windows pkg-config builds mishandle the
+          # drive-colon/backslash form in PKG_CONFIG_PATH.
+          $env:PKG_CONFIG_PATH = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig'
+
+          # The MSIs register but land under the MSI ROOTDRIVE (largest
+          # free disk), not necessarily C:\ — locate the .pc files directly.
+          $pcFile = Get-ChildItem C:\,D:\ -Recurse -Filter 'gstreamer-1.0.pc' `
+            -Depth 6 -ErrorAction SilentlyContinue |
+            Where-Object FullName -like '*msvc_x86_64*' | Select-Object -First 1
+          if (-not $pcFile) {
+            throw 'gstreamer-1.0.pc not found anywhere on C: or D: after install'
+          }
+          Write-Host "gstreamer .pc -> $($pcFile.FullName)"
+          $env:PKG_CONFIG_PATH = $pcFile.DirectoryName
+
+          Write-Host "pkg-config -> $((Get-Command pkg-config.exe -ErrorAction SilentlyContinue).Source ?? 'NOT FOUND')"
+          & pkg-config --modversion gstreamer-1.0
+          if ($LASTEXITCODE -ne 0) {
+            throw 'pkg-config cannot resolve gstreamer-1.0 despite .pc being present'
+          }
+
+          # Meson parses bracketed -D list values as string literals where
+          # \a, \b etc. are escape sequences — raw Windows backslash paths
+          # get corrupted into control characters (visible as D:␇ in the
+          # log). Convert to forward slashes; cl and link accept those.
+          $srcM = $src.Replace('\', '/')
+          $cfgM = $cfg.Replace('\', '/')
+          $libobsLibM = $libobsLib.Replace('\', '/')
+
+          # On any setup failure, surface the real compile command line from
+          # the meson log instead of its one-line summary.
+          $PSNativeCommandUseErrorActionPreference = $true
+          try {
+            meson setup build --buildtype release `
+              "-Dc_args=['/I$srcM','/I$cfgM']" `
+              "-Dc_link_args=['/LIBPATH:$libobsLibM']"
+          } catch {
+            Write-Host '=== meson-log.txt (last 150 lines) ==='
+            Get-Content build/meson-logs/meson-log.txt -Tail 150 | ForEach-Object { Write-Host $_ }
+            throw
+          }
+          ninja -C build
+
+      # Assemble the plugin zip by hand; the layout matches OBS's install
+      # tree, so the zip extracts straight into an OBS Studio install
+      # (or portable mode) folder.
+      - name: Package 📀
+        run: |
+          # Package 📀
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.check-event.outputs.version }}'
+
+          New-Item -ItemType Directory -Force `
+            -Path pkg/obs-plugins/64bit, pkg/data/obs-plugins/obs-gstreamer | Out-Null
+          Copy-Item build/obs-gstreamer.dll pkg/obs-plugins/64bit/
+          Copy-Item -Recurse data/locale pkg/data/obs-plugins/obs-gstreamer/locale
+
+          Compress-Archive -Path pkg/* `
+            -DestinationPath "obs-gstreamer-$version-windows-x64.zip"
+
+          New-Item -ItemType Directory -Force -Path pkg-pdb | Out-Null
+          Copy-Item build/obs-gstreamer.pdb pkg-pdb/ -ErrorAction SilentlyContinue
+
+      - name: Upload Artifacts 📡
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: obs-gstreamer-windows-x64
+          path: obs-gstreamer-*-windows-x64.zip
+          if-no-files-found: error
+
+      - name: Upload Debug Symbols 🪲
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: obs-gstreamer-pdb-windows-x64
+          path: pkg-pdb/obs-gstreamer.pdb
+          if-no-files-found: warn
+
+      - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        if: github.event_name != 'pull_request'
+        with:
+          path: obs-studio\.deps
+          key: windows-deps-x64-${{ env.OBS_REF }}
+
+  release:
+    name: Release 🚀
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    needs: [check-event, macos-build, linux-build, windows-build]
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: obs-gstreamer-*
+          merge-multiple: true
+          path: release
+
+      - name: Generate Checksums 🔐
+        working-directory: release
+        run: |
+          : Generate Checksums 🔐
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Attest artifacts 🔐
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            release/obs-gstreamer-*
+            release/obs-gstreamer_*
+
+      - name: Create GitHub Release 🚀
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-event.outputs.version }}
+        run: |
+          : Create GitHub Release 🚀
+          {
+            echo "## obs-gstreamer ${VERSION}"
+            echo
+            echo 'GStreamer pipelines as sources, filters, encoders and output for OBS Studio.'
+            echo
+            echo '### Installation'
+            echo '- **macOS:** unzip and copy `obs-gstreamer.plugin` to `~/Library/Application Support/obs-studio/plugins/` (requires the [GStreamer macOS runtime](https://gstreamer.freedesktop.org/download/) installed)'
+            echo '- **Windows:** unzip into your OBS Studio install folder (or portable-mode folder); requires the GStreamer **MSVC** runtime and its `bin` directory on `PATH`'
+            echo '- **Ubuntu:** `sudo apt install ./obs-gstreamer-*_amd64.deb`, or extract the portable tar.gz at `/`'
+            echo
+            echo "Built against OBS Studio ${OBS_REF} and GStreamer ${GST_VERSION}. See SHA256SUMS.txt for checksums."
+          } > release-notes.md
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "obs-gstreamer ${VERSION}" \
+            --notes-file release-notes.md \
+            release/*

@@ -24,6 +24,15 @@
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
 #include <gst/net/gstnet.h>
+#include <string.h>
+#include <stdio.h>
+
+#include "plugin-i18n.h"
+
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+#define MIN3(a, b, c) MIN(MIN(a, b), c)
 
 typedef struct {
 	GstElement *pipe;
@@ -35,6 +44,9 @@ typedef struct {
 	enum obs_media_state obs_media_state;
 	gint64 seek_pos_pending;
 	bool buffering;
+	char last_error[256];
+	gint64 resume_pos_pending;
+	bool resume_requested;
 	GSource *timeout;
 	GThread *thread;
 	GMainLoop *loop;
@@ -43,6 +55,126 @@ typedef struct {
 } data_t;
 
 static void create_pipeline(data_t *data);
+
+// Case-insensitive edit distance, capped to keep lookups cheap.
+static size_t edit_distance(const char *a, const char *b)
+{
+	char ra[64] = {0}, rb[64] = {0};
+	size_t la = 0, lb = 0;
+
+	for (; a[la] != '\0' && la < 63; la++)
+		ra[la] = (char)g_ascii_tolower(a[la]);
+	for (; b[lb] != '\0' && lb < 63; lb++)
+		rb[lb] = (char)g_ascii_tolower(b[lb]);
+
+	size_t row[64 + 1] = {0};
+	for (size_t j = 0; j <= lb; j++)
+		row[j] = j;
+
+	for (size_t i = 1; i <= la; i++) {
+		size_t prev = row[0];
+		row[0] = i;
+		for (size_t j = 1; j <= lb; j++) {
+			size_t cur = row[j];
+			size_t subst = prev + (ra[i - 1] == rb[j - 1] ? 0 : 1);
+			row[j] = MIN3(row[j] + 1, row[j - 1] + 1, subst);
+			prev = cur;
+		}
+	}
+
+	return lb > 0 ? row[lb] : la;
+}
+
+// Fills `out` with a "Did you mean ...?" hint listing up to three installed
+// elements close in spelling to `name`. Empty string when nothing is close.
+static void suggest_element_names(const char *name, char *out, size_t size)
+{
+	out[0] = '\0';
+	if (name == NULL || name[0] == '\0')
+		return;
+
+	GList *features = gst_registry_get_feature_list(gst_registry_get(), GST_TYPE_ELEMENT_FACTORY);
+
+	const char *best[3] = {NULL, NULL, NULL};
+	size_t best_dist[3] = {(size_t)-1, (size_t)-1, (size_t)-1};
+
+	for (GList *l = features; l != NULL; l = l->next) {
+		const char *candidate = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(l->data));
+		size_t d = edit_distance(name, candidate);
+
+		for (int i = 0; i < 3; i++) {
+			if (d < best_dist[i]) {
+				for (int j = 2; j > i; j--) {
+					best[j] = best[j - 1];
+					best_dist[j] = best_dist[j - 1];
+				}
+				best[i] = candidate;
+				best_dist[i] = d;
+				break;
+			}
+		}
+	}
+
+	gst_plugin_feature_list_free(features);
+
+	if (best[0] == NULL || best_dist[0] > 3)
+		return;
+
+	g_strlcat(out, " ", size);
+	g_strlcat(out, T("suggest.didyoumean"), size);
+	for (int i = 0; i < 3; i++) {
+		if (best[i] == NULL || best_dist[i] > 3)
+			break;
+		if (i > 0) {
+			g_strlcat(out, " ", size);
+			g_strlcat(out, T("suggest.or"), size);
+		}
+		g_strlcat(out, "'", size);
+		g_strlcat(out, best[i], size);
+		g_strlcat(out, "'", size);
+	}
+	g_strlcat(out, "?", size);
+}
+
+// Extracts the offending element name from a gst_parse_launch error message
+// like: no element "videotsrc"
+static void find_missing_element(const char *message, char *out, size_t size)
+{
+	out[0] = '\0';
+	if (message == NULL)
+		return;
+
+	const char *q1 = strchr(message, '"');
+	if (q1 == NULL)
+		return;
+
+	const char *q2 = strchr(q1 + 1, '"');
+	if (q2 == NULL || (size_t)(q2 - q1 - 1) >= size)
+		return;
+
+	memcpy(out, q1 + 1, q2 - q1 - 1);
+	out[q2 - q1 - 1] = '\0';
+}
+
+// Records a parse/start failure in the source status line, including an
+// element-name suggestion when applicable.
+static void format_parse_error(data_t *data, const char *context, const GError *err)
+{
+	char missing[64] = {0};
+	char hint[192] = {0};
+	char msg[256];
+
+	find_missing_element(err != NULL ? err->message : NULL, missing, sizeof(missing));
+	suggest_element_names(missing, hint, sizeof(hint));
+
+	snprintf(msg, sizeof(msg), "%s %s%s", context, err != NULL ? err->message : "unknown parse error", hint);
+	blog(LOG_ERROR, "[obs-gstreamer] %s: %s", obs_source_get_name(data->source), msg);
+
+	// Stored for the properties dialog; guarded because the UI thread reads it.
+	g_mutex_lock(&data->mutex);
+	snprintf(data->last_error, sizeof(data->last_error), "%s", msg);
+	g_mutex_unlock(&data->mutex);
+}
 
 static void timeout_destroy(gpointer user_data)
 {
@@ -57,8 +189,12 @@ static gboolean pipeline_destroy(gpointer user_data)
 {
 	data_t *data = user_data;
 
-	if (!data->pipe)
+	g_mutex_lock(&data->mutex);
+
+	if (!data->pipe) {
+		g_mutex_unlock(&data->mutex);
 		return G_SOURCE_REMOVE;
+	}
 
 	// reset OBS media flags
 	data->obs_media_state = OBS_MEDIA_STATE_STOPPED;
@@ -79,6 +215,8 @@ static gboolean pipeline_destroy(gpointer user_data)
 		gst_object_unref(data->clock);
 	data->pipe = NULL;
 	data->clock = NULL;
+
+	g_mutex_unlock(&data->mutex);
 
 	return G_SOURCE_REMOVE;
 }
@@ -107,6 +245,10 @@ static void update_obs_media_state(GstMessage *message, data_t *data)
 		data->buffering = (percent < 100);
 	} break;
 	case GST_MESSAGE_STATE_CHANGED: {
+		// Child elements post their own transitions; only trust the pipeline
+		// itself, otherwise the reported state flaps during preroll.
+		if (GST_MESSAGE_SRC(message) != GST_OBJECT(data->pipe))
+			break;
 		GstState newstate;
 		gst_message_parse_state_changed(message, NULL, &newstate, NULL);
 		switch (newstate) {
@@ -140,6 +282,36 @@ static void update_obs_media_state(GstMessage *message, data_t *data)
 static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer user_data)
 {
 	data_t *data = user_data;
+
+	// Optional deep logging to help pipeline authors debug their graphs.
+	if (obs_data_get_bool(data->settings, "verbose_bus_log")) {
+		const char *source_name = obs_source_get_name(data->source);
+		switch (GST_MESSAGE_TYPE(message)) {
+		case GST_MESSAGE_ELEMENT: {
+			const GstStructure *s = gst_message_get_structure(message);
+			blog(LOG_INFO, "[obs-gstreamer] %s: message: %s", source_name,
+			     s != NULL ? gst_structure_get_name(s) : "(unknown)");
+		} break;
+		case GST_MESSAGE_QOS:
+			blog(LOG_INFO, "[obs-gstreamer] %s: QoS event (element is running behind)", source_name);
+			break;
+		case GST_MESSAGE_LATENCY:
+			blog(LOG_INFO, "[obs-gstreamer] %s: latency renegotiation", source_name);
+			break;
+		case GST_MESSAGE_STATE_CHANGED: {
+			if (GST_MESSAGE_SRC(message) != GST_OBJECT(data->pipe)) {
+				GstState old_state, new_state;
+				gst_message_parse_state_changed(message, &old_state, &new_state, NULL);
+				blog(LOG_DEBUG, "[obs-gstreamer] %s: element %s state %s -> %s", source_name,
+				     GST_OBJECT_NAME(GST_MESSAGE_SRC(message)),
+				     gst_element_state_get_name(old_state),
+				     gst_element_state_get_name(new_state));
+			}
+		} break;
+		default:
+			break;
+		}
+	}
 
 	update_obs_media_state(message, data);
 
@@ -256,7 +428,6 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 	case GST_VIDEO_FORMAT_YVYU:
 		frame.format = VIDEO_FORMAT_YVYU;
 		break;
-#ifdef GST_VIDEO_FORMAT_I420_10LE
 	case GST_VIDEO_FORMAT_I420_10LE:
 		frame.format = VIDEO_FORMAT_I010;
 		break;
@@ -269,7 +440,6 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 	case GST_VIDEO_FORMAT_Y444_12LE:
 		frame.format = VIDEO_FORMAT_I412;
 		break;
-#endif
 	default:
 		frame.format = VIDEO_FORMAT_NONE;
 		const char *source_name = obs_source_get_name(data->source);
@@ -277,7 +447,9 @@ static GstFlowReturn video_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	}
 
-	obs_source_output_video(data->source, &frame);
+	// Do not hand frames with an unmapped pixel format to libobs.
+	if (frame.format != VIDEO_FORMAT_NONE)
+		obs_source_output_video(data->source, &frame);
 
 	gst_buffer_unmap(buffer, &info);
 	gst_sample_unref(sample);
@@ -357,7 +529,9 @@ static GstFlowReturn audio_new_sample(GstAppSink *appsink, gpointer user_data)
 		break;
 	}
 
-	obs_source_output_audio(data->source, &audio);
+	// Skip output for channel layouts / sample formats libobs cannot represent.
+	if (audio.format != AUDIO_FORMAT_UNKNOWN && audio.speakers != SPEAKERS_UNKNOWN)
+		obs_source_output_audio(data->source, &audio);
 
 	gst_buffer_unmap(buffer, &info);
 	gst_sample_unref(sample);
@@ -388,9 +562,16 @@ int64_t gstreamer_source_get_time(void *user_data)
 	if (!data->pipe)
 		return 0;
 
-	if (gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position))
-		if (GST_CLOCK_TIME_IS_VALID(position))
-			return GST_TIME_AS_MSECONDS(position);
+	// data->pipe may be torn down on the pipeline thread while we are being
+	// polled from an OBS thread.
+	g_mutex_lock(&data->mutex);
+	gboolean valid = data->pipe != NULL &&
+			 gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position) &&
+			 GST_CLOCK_TIME_IS_VALID(position);
+	g_mutex_unlock(&data->mutex);
+
+	if (valid)
+		return GST_TIME_AS_MSECONDS(position);
 
 	return 0;
 }
@@ -403,9 +584,16 @@ int64_t gstreamer_source_get_duration(void *user_data)
 	if (!data->pipe)
 		return 0;
 
-	if (gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration))
-		if (GST_CLOCK_TIME_IS_VALID(duration))
-			return GST_TIME_AS_MSECONDS(duration);
+	// data->pipe may be torn down on the pipeline thread while we are being
+	// polled from an OBS thread.
+	g_mutex_lock(&data->mutex);
+	gboolean valid = data->pipe != NULL &&
+			 gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration) &&
+			 GST_CLOCK_TIME_IS_VALID(duration);
+	g_mutex_unlock(&data->mutex);
+
+	if (valid)
+		return GST_TIME_AS_MSECONDS(duration);
 
 	return 0;
 }
@@ -434,6 +622,9 @@ void gstreamer_source_play_pause(void *user_data, bool pause)
 {
 	data_t *data = user_data;
 
+	if (!data->loop)
+		return;
+
 	g_main_context_invoke(g_main_loop_get_context(data->loop), pause ? pipeline_pause : pipeline_play, data);
 }
 
@@ -441,12 +632,18 @@ void gstreamer_source_stop(void *user_data)
 {
 	data_t *data = user_data;
 
+	if (!data->loop)
+		return;
+
 	g_main_context_invoke(g_main_loop_get_context(data->loop), pipeline_destroy, data);
 }
 
 void gstreamer_source_restart(void *user_data)
 {
 	data_t *data = user_data;
+
+	if (!data->loop)
+		return;
 
 	g_main_context_invoke(g_main_loop_get_context(data->loop), pipeline_restart, data);
 }
@@ -457,8 +654,10 @@ static gboolean pipeline_seek_to_pending(gpointer user_data)
 	gint64 seek_pos_pending;
 	gboolean seek_enabled;
 
+	g_mutex_lock(&data->mutex);
 	seek_pos_pending = data->seek_pos_pending;
 	data->seek_pos_pending = -1;
+	g_mutex_unlock(&data->mutex);
 
 	if (!data->pipe)
 		return G_SOURCE_REMOVE;
@@ -499,7 +698,13 @@ void gstreamer_source_set_time(void *user_data, int64_t ms)
 {
 	data_t *data = user_data;
 
+	if (!data->loop)
+		return;
+
+	g_mutex_lock(&data->mutex);
 	data->seek_pos_pending = ms * GST_MSECOND;
+	g_mutex_unlock(&data->mutex);
+
 	g_main_context_invoke(g_main_loop_get_context(data->loop), pipeline_seek_to_pending, data);
 }
 
@@ -507,16 +712,43 @@ static gboolean loop_startup(gpointer user_data)
 {
 	data_t *data = user_data;
 
-	create_pipeline(data);
-
+	// Wake start() as soon as the loop is running. Pipeline creation below
+	// may block (e.g. waiting for an NTP clock to sync) and must not freeze
+	// the OBS thread that called start().
 	g_mutex_lock(&data->mutex);
 	g_cond_signal(&data->cond);
 	g_mutex_unlock(&data->mutex);
 
-	if (data->pipe)
+	create_pipeline(data);
+
+	if (data->pipe) {
 		gst_element_set_state(data->pipe, GST_STATE_PLAYING);
 
+		// Resume the previous position after a hide/show cycle, if one was
+		// requested. Reuses the regular seek machinery once the pipeline
+		// had a chance to settle.
+		if (data->resume_requested) {
+			data->resume_requested = false;
+			data->seek_pos_pending = data->resume_pos_pending * GST_MSECOND;
+			g_main_context_invoke(g_main_loop_get_context(data->loop),
+					      pipeline_seek_to_pending, data);
+		}
+	}
+
 	return G_SOURCE_REMOVE;
+}
+
+// Builds the full launch string: appsink plumbing plus the user pipeline.
+static gchar *build_pipeline_string(data_t *data)
+{
+	// Note: GST_VIDEO_FORMAT_I420_10LE is an enum value, not a macro, so the
+	// former #ifdef guard here was always false. Offer exactly the formats
+	// that are mapped to libobs formats below.
+	return g_strdup_printf(
+		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY,I420_10LE,P010_10LE,I422_10LE,Y444_12LE} ! appsink name=video_appsink "
+		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8}, layout=interleaved ! appsink name=audio_appsink "
+		"%s",
+		obs_data_get_string(data->settings, "pipeline"));
 }
 
 static void create_pipeline(data_t *data)
@@ -529,22 +761,20 @@ static void create_pipeline(data_t *data)
 	data->seek_pos_pending = -1;
 	data->buffering = false;
 
-	gchar *pipeline = g_strdup_printf(
-#ifdef GST_VIDEO_FORMAT_I420_10LE
-		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY,I420_10LE,P010_10LE,I420_12LE,Y444_12LE} ! appsink name=video_appsink "
-#else
-		"videoconvert name=video ! video/x-raw, format={I420,NV12,BGRA,BGRx,RGBx,RGBA,YUY2,YVYU,UYVY} ! appsink name=video_appsink "
-#endif
-		"audioconvert name=audio ! audioresample ! audio/x-raw, format={U8,S16LE,S32LE,F32LE}, channels={1,2,3,4,5,6,8}, layout=interleaved ! appsink name=audio_appsink "
-		"%s",
-		obs_data_get_string(data->settings, "pipeline"));
+	gchar *pipeline = build_pipeline_string(data);
 
 	data->pipe = gst_parse_launch(pipeline, &err);
 	g_free(pipeline);
 	if (err != NULL) {
-		const char *source_name = obs_source_get_name(data->source);
-		blog(LOG_ERROR, "[obs-gstreamer] %s: Cannot start pipeline: %s", source_name, err->message);
+		format_parse_error(data, T("err.cannot_start"), err);
 		g_error_free(err);
+
+		// gst_parse_launch() can return a partially built pipeline even on
+		// error; do not leak it.
+		if (data->pipe != NULL) {
+			gst_object_unref(data->pipe);
+			data->pipe = NULL;
+		}
 
 		data->obs_media_state = OBS_MEDIA_STATE_ERROR;
 
@@ -552,6 +782,11 @@ static void create_pipeline(data_t *data)
 
 		return;
 	}
+
+	// Pipeline launched fine; clear any previously shown error.
+	g_mutex_lock(&data->mutex);
+	data->last_error[0] = '\0';
+	g_mutex_unlock(&data->mutex);
 
 	GstAppSinkCallbacks video_cbs = {NULL, NULL, video_new_sample};
 
@@ -572,11 +807,19 @@ static void create_pipeline(data_t *data)
 
 	// check if connected and remove if not
 	GstElement *sink = gst_bin_get_by_name(GST_BIN(data->pipe), "video");
-	GstPad *pad = gst_element_get_static_pad(sink, "sink");
-	if (!gst_pad_is_linked(pad))
-		gst_bin_remove(GST_BIN(data->pipe), appsink);
-	gst_object_unref(pad);
-	gst_object_unref(sink);
+	if (sink != NULL) {
+		GstPad *pad = gst_element_get_static_pad(sink, "sink");
+		if (pad != NULL) {
+			if (!gst_pad_is_linked(pad))
+				gst_bin_remove(GST_BIN(data->pipe), appsink);
+			gst_object_unref(pad);
+		} else {
+			blog(LOG_WARNING, "[obs-gstreamer] element 'video' has no static sink pad");
+		}
+		gst_object_unref(sink);
+	} else {
+		blog(LOG_WARNING, "[obs-gstreamer] pipeline has no element named 'video'");
+	}
 
 	gst_object_unref(appsink);
 
@@ -599,11 +842,19 @@ static void create_pipeline(data_t *data)
 
 	// check if connected and remove if not
 	sink = gst_bin_get_by_name(GST_BIN(data->pipe), "audio");
-	pad = gst_element_get_static_pad(sink, "sink");
-	if (!gst_pad_is_linked(pad))
-		gst_bin_remove(GST_BIN(data->pipe), appsink);
-	gst_object_unref(pad);
-	gst_object_unref(sink);
+	if (sink != NULL) {
+		GstPad *pad = gst_element_get_static_pad(sink, "sink");
+		if (pad != NULL) {
+			if (!gst_pad_is_linked(pad))
+				gst_bin_remove(GST_BIN(data->pipe), appsink);
+			gst_object_unref(pad);
+		} else {
+			blog(LOG_WARNING, "[obs-gstreamer] element 'audio' has no static sink pad");
+		}
+		gst_object_unref(sink);
+	} else {
+		blog(LOG_WARNING, "[obs-gstreamer] pipeline has no element named 'audio'");
+	}
 
 	gst_object_unref(appsink);
 
@@ -615,17 +866,17 @@ static void create_pipeline(data_t *data)
 	const char *server = obs_data_get_string(data->settings, "ntp_server");
 	if (strlen(server) > 0) {
 		gint clock_port = obs_data_get_int(data->settings, "ntp_port");
-		data->clock = gst_ntp_clock_new("net_clock", server, clock_port, 0);
+		GstClock *clock = gst_ntp_clock_new("net_clock", server, clock_port, 0);
 		blog(LOG_INFO, "Connect to NTP server %s", server);
-		if (data->clock == NULL) {
-			blog(LOG_ERROR, "Failed to connect to net clock %s", server);
-			return;
+		if (clock == NULL) {
+			blog(LOG_ERROR, "Failed to connect to net clock %s, continuing without it", server);
+		} else if (!gst_clock_wait_for_sync(clock, 5 * GST_SECOND)) {
+			blog(LOG_ERROR, "Failed to sync to net clock %s, timeout, continuing without it", server);
+			gst_object_unref(clock);
+		} else {
+			data->clock = clock;
+			gst_pipeline_use_clock(GST_PIPELINE(data->pipe), GST_CLOCK(data->clock));
 		}
-		if (!gst_clock_wait_for_sync(data->clock, 5 * GST_SECOND)) {
-			blog(LOG_ERROR, "Failed to sync to net clock %s, timeout", server);
-			return;
-		}
-		gst_pipeline_use_clock(GST_PIPELINE(data->pipe), GST_CLOCK(data->clock));
 	}
 	gint latency = obs_data_get_int(data->settings, "latency");
 	// set latency
@@ -666,6 +917,13 @@ static gpointer _start(gpointer user_data)
 static void start(data_t *data)
 {
 	g_mutex_lock(&data->mutex);
+
+	// Guard against a second start while the worker thread is still around
+	// (e.g. show() racing a restart that briefly has no pipeline).
+	if (data->thread != NULL) {
+		g_mutex_unlock(&data->mutex);
+		return;
+	}
 
 	data->thread = g_thread_new("GStreamer Source", _start, data);
 
@@ -742,6 +1000,8 @@ void gstreamer_source_get_defaults(obs_data_t *settings)
 	obs_data_set_default_bool(settings, "drop_video", false);
 	obs_data_set_default_bool(settings, "drop_audio", false);
 	obs_data_set_default_bool(settings, "clear_on_end", true);
+	obs_data_set_default_bool(settings, "resume_position", false);
+	obs_data_set_default_bool(settings, "verbose_bus_log", false);
 }
 
 void gstreamer_source_update(void *data, obs_data_t *settings);
@@ -753,48 +1013,189 @@ static bool on_apply_clicked(obs_properties_t *props, obs_property_t *property, 
 	return false;
 }
 
+static const struct {
+	const char *label_key;
+	const char *pipeline;
+} source_presets[] = {
+	{"preset.test",
+	 "videotestsrc is-live=true ! video/x-raw, framerate=30/1, width=960, height=540 ! video. "
+	 "audiotestsrc wave=ticks is-live=true ! audio/x-raw, channels=2, rate=44100 ! audio."},
+	{"preset.rtsp",
+	 "rtspsrc location=rtsp://192.168.1.100:554/stream latency=200 ! decodebin ! queue ! videoconvert ! video."},
+	{"preset.srt",
+	 "srtsrc uri=srt://:7001 mode=listener latency=200 ! decodebin name=dec dec. ! queue ! videoconvert ! video. "
+	 "dec. ! queue ! audioconvert ! audio."},
+	{"preset.webcam",
+	 "v4l2src device=/dev/video0 ! image/jpeg ! jpegdec ! videoconvert ! video."},
+	{"preset.x11",
+	 "ximagesrc use-damage=0 show-pointer=true ! video/x-raw, framerate=30/1 ! videoconvert ! video."},
+};
+
+static bool preset_selected(obs_properties_t *props, obs_property_t *property, obs_data_t *settings)
+{
+	const char *preset = obs_data_get_string(settings, "preset");
+	if (preset[0] == '\0')
+		return false;
+
+	// Insert the template into the pipeline field and reset the combo so
+	// selecting the same entry again re-applies it.
+	obs_data_set_string(settings, "pipeline", preset);
+	obs_data_set_string(settings, "preset", "");
+
+	// Rebuild the properties so the new pipeline text shows up.
+	return true;
+}
+
 obs_properties_t *gstreamer_source_get_properties(void *data)
 {
+	data_t *d = (data_t *)data;
+
 	obs_properties_t *props = obs_properties_create();
 
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
-	obs_property_t *prop = obs_properties_add_text(props, "pipeline", "Pipeline", OBS_TEXT_MULTILINE);
-	obs_property_set_long_description(prop, "Use \"video\" and \"audio\" as names for the media sinks.");
-	obs_properties_add_bool(props, "use_timestamps_video", "Use pipeline time stamps (video)");
-	obs_properties_add_bool(props, "use_timestamps_audio", "Use pipeline time stamps (audio)");
-	obs_properties_add_bool(props, "sync_appsink_video", "Sync appsink to clock (video)");
-	obs_properties_add_bool(props, "sync_appsink_audio", "Sync appsink to clock (audio)");
-	obs_properties_add_bool(props, "disable_async_appsink_video",
-				"Disable asynchronous state change in appsink (video)");
-	obs_properties_add_bool(props, "disable_async_appsink_audio",
-				"Disable asynchronous state change in appsink (audio)");
-	obs_properties_add_bool(props, "restart_on_eos", "Try to restart when end of stream is reached");
-	obs_properties_add_bool(props, "restart_on_error", "Try to restart after pipeline encountered an error");
-	obs_properties_add_int(props, "restart_timeout", "Error timeout (ms)", 0, 10000, 100);
-	obs_properties_add_bool(props, "stop_on_hide", "Stop pipeline when hidden");
-	obs_properties_add_bool(props, "clear_on_end", "Clear image data after end-of-stream or error");
-	obs_properties_add_bool(props, "block_video", "Disable video sink buffer");
-	obs_properties_add_bool(props, "drop_video", "Drop video when sink is not fast enough");
-	obs_properties_add_bool(props, "block_audio", "Disable audio sink buffer");
-	obs_properties_add_bool(props, "drop_audio", "Drop audio when sink is not fast enough");
-	obs_properties_add_bool(props, "no_buffer", "Disable buffering in OBS");
-	prop = obs_properties_add_int(props, "latency", "Fixed latency (ms)", 0, 10000, 10);
-	obs_property_set_long_description(
-		prop,
-		"This sets a fixed latency for the pipeline for syncing different inputs.\nCheck the error log for clock errors if the set latency is too low.\nSetting 0 auto-detects lowest possible latency for the given pipeline.");
-	prop = obs_properties_add_text(props, "ntp_server", "NTP server", OBS_TEXT_DEFAULT);
-	obs_property_set_long_description(
-		prop,
-		"This sets a NTP server for syncing the gstreamer clock to.\nUse e.g. with rtspsrc rfc7273-sync or ntp-sync options.\nLeave empty to not use a NTP server.");
-	obs_properties_add_int(props, "ntp_port", "NTP server port", 1, 65536, 1);
-	obs_properties_add_button2(props, "apply", "Apply", on_apply_clicked, data);
+	// Runtime status line. libobs has no per-source error API (only outputs
+	// and encoders have obs_*_set_last_error()), so errors are surfaced through
+	// an info text property. The status is passed as the property description;
+	// nothing is written to the saved settings.
+	char last_error[sizeof(d->last_error)];
+	g_mutex_lock(&d->mutex);
+	memcpy(last_error, d->last_error, sizeof(last_error));
+	g_mutex_unlock(&d->mutex);
+
+	const char *status = T("status.stopped");
+	enum obs_text_info_type status_type = OBS_TEXT_INFO_NORMAL;
+	if (last_error[0] != '\0') {
+		status = last_error;
+		status_type = OBS_TEXT_INFO_ERROR;
+	} else if (d->thread != NULL) {
+		switch (d->obs_media_state) {
+		case OBS_MEDIA_STATE_OPENING:
+			status = T("status.opening");
+			status_type = OBS_TEXT_INFO_WARNING;
+			break;
+		case OBS_MEDIA_STATE_BUFFERING:
+			status = T("status.buffering");
+			status_type = OBS_TEXT_INFO_WARNING;
+			break;
+		case OBS_MEDIA_STATE_PLAYING:
+			status = T("status.running");
+			break;
+		case OBS_MEDIA_STATE_PAUSED:
+			status = T("status.paused");
+			break;
+		case OBS_MEDIA_STATE_ENDED:
+			status = T("status.ended");
+			break;
+		default:
+			break;
+		}
+	}
+	// Purge the key an earlier version persisted into saved settings.
+	obs_data_erase(d->settings, "_last_status");
+
+	obs_property_t *prop = obs_properties_add_text(props, "_status_line", status, OBS_TEXT_INFO);
+	obs_property_text_set_info_type(prop, status_type);
+
+	// --- Pipeline ---
+	obs_properties_t *pgroup = obs_properties_create();
+
+	prop = obs_properties_add_list(pgroup, "preset", T("template.label"), OBS_COMBO_TYPE_LIST,
+				       OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(prop, T("template.none"), "");
+	for (size_t i = 0; i < sizeof(source_presets) / sizeof(source_presets[0]); i++)
+		obs_property_list_add_string(prop, T(source_presets[i].label_key), source_presets[i].pipeline);
+	obs_property_set_modified_callback(prop, preset_selected);
+	obs_property_set_long_description(prop, T("template.desc"));
+
+	prop = obs_properties_add_text(pgroup, "pipeline", T("pipeline.label"), OBS_TEXT_MULTILINE);
+	obs_property_set_long_description(prop, T("pipeline.desc"));
+
+	obs_properties_add_group(props, "pipeline_group", T("group.pipeline"), OBS_GROUP_NORMAL, pgroup);
+
+	// --- Video ---
+	obs_properties_t *vgroup = obs_properties_create();
+
+	obs_properties_add_bool(vgroup, "use_timestamps_video", T("timestamps.video"));
+	obs_properties_add_bool(vgroup, "sync_appsink_video", T("sync.video"));
+	obs_properties_add_bool(vgroup, "disable_async_appsink_video", T("noasync.video"));
+	prop = obs_properties_add_bool(vgroup, "block_video", T("block.video"));
+	obs_property_set_long_description(prop, T("block.video.desc"));
+	prop = obs_properties_add_bool(vgroup, "drop_video", T("drop.video"));
+	obs_property_set_long_description(prop, T("drop.generic.desc"));
+
+	obs_properties_add_group(props, "video_group", T("group.video"), OBS_GROUP_NORMAL, vgroup);
+
+	// --- Audio ---
+	obs_properties_t *agroup = obs_properties_create();
+
+	obs_properties_add_bool(agroup, "use_timestamps_audio", T("timestamps.audio"));
+	obs_properties_add_bool(agroup, "sync_appsink_audio", T("sync.audio"));
+	obs_properties_add_bool(agroup, "disable_async_appsink_audio", T("noasync.audio"));
+	prop = obs_properties_add_bool(agroup, "block_audio", T("block.audio"));
+	obs_property_set_long_description(prop, T("block.audio.desc"));
+	prop = obs_properties_add_bool(agroup, "drop_audio", T("drop.audio"));
+	obs_property_set_long_description(prop, T("drop.generic.desc"));
+
+	obs_properties_add_group(props, "audio_group", T("group.audio"), OBS_GROUP_NORMAL, agroup);
+
+	// --- Behavior ---
+	obs_properties_t *bgroup = obs_properties_create();
+
+	obs_properties_add_bool(bgroup, "restart_on_eos", T("restart.eos"));
+	obs_properties_add_bool(bgroup, "restart_on_error", T("restart.error"));
+	obs_properties_add_int(bgroup, "restart_timeout", T("restart.timeout"), 0, 10000, 100);
+	obs_properties_add_bool(bgroup, "stop_on_hide", T("stop.on_hide"));
+	prop = obs_properties_add_bool(bgroup, "resume_position", T("resume.position"));
+	obs_property_set_long_description(prop, T("resume.position.desc"));
+	obs_properties_add_bool(bgroup, "clear_on_end", T("clear.on_end"));
+	obs_properties_add_bool(bgroup, "no_buffer", T("no_buffer"));
+	prop = obs_properties_add_int(bgroup, "latency", T("latency.label"), 0, 10000, 10);
+	obs_property_set_long_description(prop, T("latency.desc"));
+
+	obs_properties_add_group(props, "behavior_group", T("group.behavior"), OBS_GROUP_NORMAL, bgroup);
+
+	// --- Network clock ---
+	obs_properties_t *ngroup = obs_properties_create();
+
+	prop = obs_properties_add_text(ngroup, "ntp_server", T("ntp.server"), OBS_TEXT_DEFAULT);
+	obs_property_set_long_description(prop, T("ntp.server.desc"));
+	obs_properties_add_int(ngroup, "ntp_port", T("ntp.port"), 1, 65536, 1);
+
+	obs_properties_add_group(props, "network_group", T("group.network"), OBS_GROUP_NORMAL, ngroup);
+
+	prop = obs_properties_add_bool(props, "verbose_bus_log", T("verbose.log"));
+	obs_property_set_long_description(prop, T("verbose.log.desc"));
+
+	obs_properties_add_button2(props, "apply", T("apply"), on_apply_clicked, data);
 
 	return props;
 }
 
 void gstreamer_source_update(void *data, obs_data_t *settings)
 {
+	// Validate the pipeline before tearing down a possibly working one. A
+	// typo then shows up as an error in the properties dialog instead of
+	// killing the running source.
+	GError *err = NULL;
+	gchar *pipe_string = build_pipeline_string((data_t *)data);
+	GstElement *test_pipe = gst_parse_launch(pipe_string, &err);
+	g_free(pipe_string);
+
+	if (err != NULL || test_pipe == NULL) {
+		format_parse_error((data_t *)data, T("err.invalid_pipeline"), err);
+		if (err != NULL)
+			g_error_free(err);
+		if (test_pipe != NULL)
+			gst_object_unref(test_pipe);
+		return;
+	}
+	gst_object_unref(test_pipe);
+
+	// An explicit apply is an intentional fresh start; drop any pending
+	// resume from earlier hide/show cycles.
+	((data_t *)data)->resume_requested = false;
+
 	stop(data);
 
 	bool nobuf = obs_data_get_bool(settings, "no_buffer");
@@ -817,6 +1218,21 @@ void gstreamer_source_show(void *data)
 
 void gstreamer_source_hide(void *data)
 {
-	if (obs_data_get_bool(((data_t *)data)->settings, "stop_on_hide"))
-		stop(data);
+	data_t *d = ((data_t *)data);
+
+	if (!obs_data_get_bool(d->settings, "stop_on_hide"))
+		return;
+
+	// Remember where playback stood so show() can resume, if requested and
+	// the stream is seekable (has a finite duration).
+	if (obs_data_get_bool(d->settings, "resume_position") && d->pipe != NULL) {
+		int64_t pos = gstreamer_source_get_time(d);
+		int64_t dur = gstreamer_source_get_duration(d);
+		if (pos > 0 && dur > 0 && pos < dur) {
+			d->resume_pos_pending = pos;
+			d->resume_requested = true;
+		}
+	}
+
+	stop(d);
 }

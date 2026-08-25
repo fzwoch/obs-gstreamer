@@ -94,6 +94,52 @@ If you don't understand what is happening in these lines please check the
 GStreamer documentation as mentioned above!
 
 
+Troubleshooting
+---
+
+The properties dialog of each GStreamer source/filter shows a status line.
+If a pipeline fails to parse or start, the error message from GStreamer is
+shown there. Detailed messages are always written to the OBS log file
+(`Help` → `Log Files` → `View Current Log`).
+
+Common issues:
+
+- **"Cannot start pipeline: no element ..."** – the element is not provided by
+  your installed GStreamer runtime (check with `gst-inspect-1.0 <element>`).
+  For typos the status line suggests similar installed element names.
+- **Black video, no errors** – the pipeline links but never produces data in a
+  format the appsink accepts; try inserting `videoconvert`/`audioconvert` and
+  check negotiated caps with `gst-launch-1.0 -v` on the command line.
+- **Applying an invalid pipeline keeps the old one running** – fix the error
+  shown in the status line and apply again.
+- **A/V drift** – make sure both branches use `use_timestamps` or that your
+  source provides sensible timestamps.
+
+Convenience features
+---
+
+- **Template dropdown** (source properties): fills the pipeline text with a
+  working example (test pattern, RTSP camera, SRT listener, webcam, X11 screen
+  capture). Adjust addresses and options afterwards, then hit Apply.
+- **Resume playback position when re-shown**: together with "Stop pipeline when
+  hidden" this remembers the playback position on hide and seeks back on show
+  (only for seekable streams).
+- **Verbose pipeline logging**: while enabled, QoS events, element state
+  changes and custom bus messages are written to the OBS log file — handy when
+  debugging why a pipeline misbehaves.
+
+Translations
+---
+
+All UI strings are localized via OBS' standard module locale mechanism
+(`data/locale/*.ini`). Included locales: en-US, de-DE, fr-FR, es-ES, it-IT,
+nl-NL, pt-PT, sv-SE, da-DK, fi-FI, nb-NO, pl-PL, cs-CZ, hu-HU, ro-RO, el-GR,
+ru-RU, uk-UA, tr-TR. If your language is missing or a translation reads off,
+pull requests adding/correcting `data/locale/<locale>.ini` are welcome — the
+key set is defined in `data/locale/en-US.ini`. English texts are also embedded
+in the binary as fallback, so the plugin stays usable even without its data
+directory. GStreamer runtime error messages themselves are not translated.
+
 Build
 ---
 

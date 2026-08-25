@@ -21,9 +21,28 @@
 #include <obs/obs-module.h>
 #include <gst/gst.h>
 
+#include "plugin-i18n.h"
+
 extern const char *obs_gstreamer_version;
 
 OBS_DECLARE_MODULE()
+OBS_MODULE_USE_DEFAULT_LOCALE("obs-gstreamer", "en-US")
+
+/*
+ * Look up a translatable UI string for the active OBS language.
+ *
+ * OBS_MODULE_USE_DEFAULT_LOCALE() makes libobs load en-US.ini first and then
+ * overlay the selected locale on top of it, so untranslated keys already fall
+ * back to English. Only when even en-US.ini cannot be read (e.g. the plugin
+ * is loaded without its data directory during development) does this return
+ * the raw key.
+ */
+const char *T(const char *key)
+{
+	const char *text = NULL;
+
+	return obs_module_get_string(key, &text) ? text : key;
+}
 
 // gstreamer-source.c
 extern const char *gstreamer_source_get_name(void *type_data);
