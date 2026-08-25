@@ -25,6 +25,7 @@
 #include <gst/app/app.h>
 #include <gst/net/gstnet.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "plugin-i18n.h"
 

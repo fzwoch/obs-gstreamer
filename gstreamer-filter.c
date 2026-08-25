@@ -24,6 +24,7 @@
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "plugin-i18n.h"
 
