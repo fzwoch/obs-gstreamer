@@ -435,7 +435,20 @@ jobs:
           cl /nologo /c probe.c "/I$src" "/I$cfg" /Fo"$env:TEMP\probe.obj"
           Remove-Item probe.c
 
-          $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
+          # Forward slashes: Windows pkg-config builds mishandle the
+          # drive-colon/backslash form in PKG_CONFIG_PATH.
+          $env:PKG_CONFIG_PATH = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig'
+
+          # Fail loudly if the devel MSI did not actually land.
+          $gstPc = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig/gstreamer-1.0.pc'
+          if (-not (Test-Path $gstPc)) {
+            throw "GStreamer pkg-config metadata missing: $gstPc"
+          }
+          Write-Host "pkg-config -> $((Get-Command pkg-config.exe -ErrorAction SilentlyContinue).Source ?? 'NOT FOUND')"
+          & pkg-config --modversion gstreamer-1.0
+          if ($LASTEXITCODE -ne 0) {
+            throw 'pkg-config cannot resolve gstreamer-1.0 despite .pc being present'
+          }
 
           # Meson parses bracketed -D list values as string literals where
           # \a, \b etc. are escape sequences — raw Windows backslash paths
