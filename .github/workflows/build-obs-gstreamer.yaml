@@ -323,6 +323,7 @@ jobs:
           # DLLs — the devel installer adds the headers, import libraries
           # and pkg-config metadata (.pc) that meson resolves through.
           $base = "https://gstreamer.freedesktop.org/data/pkg/windows/$($env:GST_VERSION)/msvc"
+          $summaryMsi = @()
           foreach ($gstMsi in @(
               "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
               "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
@@ -335,6 +336,7 @@ jobs:
               -Wait -PassThru
             # 3010 = success, reboot required
             Write-Host "$gstMsi -> msiexec exit $($p.ExitCode)"
+            $summaryMsi += "$($gstMsi -replace 'gstreamer-1.0-', ''):$($p.ExitCode)"
             if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
               Get-Content "$gstMsi.install.log" -Tail 40 |
                 ForEach-Object { Write-Host $_ }
@@ -344,21 +346,27 @@ jobs:
 
           # Show what actually happened: downloaded sizes, where Windows
           # thinks GStreamer products live, and where files really are.
-          Get-ChildItem -File *.msi* | ForEach-Object {
-            Write-Host "$($_.Name) $([math]::Round($_.Length / 1MB))MB"
-          }
-          Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*,
+          # Everything is folded into thrown messages so it survives
+          # truncated CI log excerpts.
+          $sizes = (Get-ChildItem -File *.msi* |
+            ForEach-Object { "$($_.Name)=$([math]::Round($_.Length / 1MB))MB" }) -join ', '
+          $registered = (Get-ItemProperty `
+            HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*,
             HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* `
             -ErrorAction SilentlyContinue |
             Where-Object DisplayName -like '*GStreamer*' |
-            ForEach-Object { Write-Host "registered: $($_.DisplayName) $($_.DisplayVersion) @ $($_.InstallLocation)" }
+            ForEach-Object { "$($_.DisplayName)@$($_.InstallLocation)" }) -join '; '
+          $tree = if (Test-Path C:\gstreamer\1.0) {
+            (Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
+              ForEach-Object { $_.FullName }) -join '; '
+          } else { 'C:\gstreamer\1.0 ABSENT' }
+          Write-Host "sizes: $sizes"
+          Write-Host "registered: $registered"
+          Write-Host "tree: $tree"
 
-          # Make the resulting SDK layout visible in the run log.
-          if (Test-Path C:\gstreamer\1.0) {
-            Get-ChildItem C:\gstreamer\1.0 -Directory -Recurse -Depth 1 |
-              ForEach-Object { Write-Host $_.FullName }
-          } else {
-            Write-Host '::warning::C:\gstreamer\1.0 does not exist after installation'
+          $gstPc = 'C:/gstreamer/1.0/msvc_x86_64/lib/pkgconfig/gstreamer-1.0.pc'
+          if (-not (Test-Path $gstPc)) {
+            throw "GStreamer .pc missing after install. msiexec=[$($summaryMsi -join ', ')] sizes=[$sizes] registered=[$registered] tree=[$tree]"
           }
 
       - name: Fetch obs-studio 📥
