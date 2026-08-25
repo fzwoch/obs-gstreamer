@@ -328,11 +328,11 @@ jobs:
               "gstreamer-1.0-msvc-x86_64-$($env:GST_VERSION).msi",
               "gstreamer-1.0-devel-msvc-x86_64-$($env:GST_VERSION).msi")) {
             Invoke-WebRequest -Uri "$base/$gstMsi" -OutFile $gstMsi
-            # REINSTALL=ALL + vomus: if the runner image has the product
-            # already registered (but its files stripped), a plain /i
-            # exits 0 as a no-op reconfigure — force files back onto disk.
+            # ADDLOCAL=ALL: INSTALLLEVEL alone can select zero features
+            # (levels above the threshold) yielding a successful no-op;
+            # explicit selection forces every component onto disk.
             $p = Start-Process msiexec `
-              -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 REINSTALL=ALL REINSTALLMODE=vomus /l*v `"$PWD\$gstMsi.install.log`"" `
+              -ArgumentList "/i `"$PWD\$gstMsi`" /qn /norestart INSTALLLEVEL=100 ADDLOCAL=ALL /l*v `"$PWD\$gstMsi.install.log`"" `
               -Wait -PassThru
             # 3010 = success, reboot required
             Write-Host "$gstMsi -> msiexec exit $($p.ExitCode)"
@@ -352,7 +352,8 @@ jobs:
             ForEach-Object { "$($_.Name)=$([math]::Round($_.Length / 1MB))MB" }) -join ', '
           $registered = (Get-ItemProperty `
             HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*,
-            HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* `
+            HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*,
+            HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\* `
             -ErrorAction SilentlyContinue |
             Where-Object DisplayName -like '*GStreamer*' |
             ForEach-Object { "$($_.DisplayName)@$($_.InstallLocation)" }) -join '; '
