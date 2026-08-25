@@ -108,6 +108,11 @@ jobs:
           # refuses global installs; use Homebrew tooling instead.
           brew install meson ninja
 
+          # The Xcode generator builds libobs as a framework, which plain
+          # '-lobs' cannot resolve; expose the inner binary as a dylib.
+          ln -sfn libobs.framework/libobs \
+            obs-studio/build_macos/libobs/RelWithDebInfo/libobs.dylib
+
           export PKG_CONFIG_PATH="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
           export C_INCLUDE_PATH="$PWD/obs-studio"
           export LIBRARY_PATH="$PWD/obs-studio/build_macos/libobs/RelWithDebInfo"
@@ -175,7 +180,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential ccache ninja-build pkg-config meson \
             extra-cmake-modules \
-            libsimde-dev \
+            libsimde-dev uthash-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgles2-mesa-dev libgl1-mesa-dev libegl1-mesa-dev \
             libx11-dev libxkbcommon-dev libxkbcommon-x11-dev libx264-dev libdrm-dev \
@@ -364,12 +369,30 @@ jobs:
           # Build obs-gstreamer 🧱
           $ErrorActionPreference = 'Stop'
 
-          # Point pkg-config at the GStreamer SDK. For libobs, do NOT rely
-          # on INCLUDE/LIB: cl.exe is not on PATH here, so meson initializes
-          # the MSVC environment itself (auto-vcvars) and replaces those
-          # variables during compiler detection. Pass the libobs tree as
-          # explicit compiler/linker arguments instead — meson applies them
-          # to every check, including the <obs/obs.h> header probe.
+          # Select MSVC explicitly: hosted runners expose Strawberry
+          # Perl's gcc/cc on PATH and meson would otherwise pick that
+          # toolchain (gcc silently ignores INCLUDE/LIB, and chokes on
+          # MSVC-style /I arguments). Import the Visual Studio developer
+          # environment so cl.exe is what meson finds first.
+          $ErrorActionPreference = 'Stop'
+
+          $vswhere = Join-Path ${Env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstall = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $vsInstall) { throw 'No Visual Studio C++ toolset found' }
+
+          $vcvars = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvars64.bat'
+          cmd /s /c "`"$vcvars`" && set" | ForEach-Object {
+            if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+              Set-Item -Path "Env:$($Matches[1])" -Value $Matches[2]
+            }
+          }
+
+          # Point pkg-config at the GStreamer SDK, and bake the libobs tree
+          # (<checkout>/obs -> libobs headers, import library next to the
+          # built target) into every compiler check, independent of
+          # environment handling.
           $src = Join-Path $PWD obs-studio
           $libobsLib = Join-Path $src 'build_x64\libobs\RelWithDebInfo'
 
