@@ -64,9 +64,14 @@ jobs:
       - name: Fetch obs-studio 📥
         run: |
           : Fetch obs-studio 📥
-          git clone --depth 1 --branch "${OBS_REF}" \
-            --recurse-submodules --shallow-submodules \
-            https://github.com/obsproject/obs-studio.git obs-studio
+          # SHA-pinned source archive instead of a git clone: smaller,
+          # verifiable, and submodules are unneeded with browser/websocket/
+          # scripting disabled.
+          curl --fail -L --retry 3 -o obs-studio.tar.gz \
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/${OBS_REF}.tar.gz"
+          echo "c333e4a7d5c4a94c7bb4833f046368e0ac5e981fb3964ca4981b23be1dfbda4a  obs-studio.tar.gz" | shasum -a 256 -c -
+          mkdir obs-studio
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
 
           # The plugin includes libobs headers via their installed layout
           # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
@@ -101,6 +106,15 @@ jobs:
             "https://gstreamer.freedesktop.org/data/pkg/osx/${GST_VERSION}/gstreamer-1.0-devel-${GST_VERSION}-universal.pkg"
           sudo installer -pkg gst-devel.pkg -target /
 
+      - name: Restore ccache 🔄
+        id: ccache
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.arch }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-macos-${{ matrix.arch }}-
+
       - name: Build obs-gstreamer 🧱
         run: |
           : Build obs-gstreamer 🧱
@@ -108,7 +122,7 @@ jobs:
           # refuses global installs; use Homebrew tooling instead. SIMDe is
           # needed because the plugin compiles against libobs' sse-intrin.h
           # directly (obs-deps' copy is only wired into OBS's own build).
-          brew install meson ninja simde
+          brew install meson ninja simde ccache
 
           # The Xcode generator builds libobs as a framework, which plain
           # '-lobs' cannot resolve; expose the inner binary as a dylib.
@@ -124,12 +138,17 @@ jobs:
           # and fail to link the x86_64-only libobs.
           arch='${{ matrix.arch }}'
 
+          export CCACHE_DIR="$PWD/.ccache"
+          export CCACHE_MAXSIZE=200M
+          export CC="ccache clang"
+
           # Resolve '-lobs' explicitly through the framework dir instead of
           # relying on environment-based library search alone.
           meson setup build --buildtype release \
             "-Dc_args=['-arch', '$arch']" \
             "-Dc_link_args=['-arch', '$arch', '-F$PWD/obs-studio/build_macos/libobs/RelWithDebInfo']"
           ninja -C build
+          ccache --show-stats
 
       - name: Package 📀
         run: |
@@ -163,9 +182,16 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pkg-macos-${{ matrix.arch }}
+          name: obs-gstreamer-macos-${{ matrix.arch }}
           path: obs-gstreamer-*-macos-${{ matrix.arch }}.zip
           if-no-files-found: error
+
+      - name: Save ccache 💾
+        if: success() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-macos-${{ matrix.arch }}-${{ github.run_id }}
 
       - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         if: github.event_name != 'pull_request'
@@ -206,12 +232,23 @@ jobs:
             python3-dev swig \
             qt6-base-dev qt6-svg-dev libfreetype6-dev libfontconfig-dev
 
+      - name: Restore ccache 🔄
+        id: ccache
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-linux-x86_64-${{ github.run_id }}
+          restore-keys: |
+            ccache-linux-x86_64-
+
       - name: Fetch obs-studio 📥
         run: |
           : Fetch obs-studio 📥
-          git clone --depth 1 --branch "${OBS_REF}" \
-            --recurse-submodules --shallow-submodules \
-            https://github.com/obsproject/obs-studio.git obs-studio
+          curl --fail -L --retry 3 -o obs-studio.tar.gz \
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/${OBS_REF}.tar.gz"
+          echo "c333e4a7d5c4a94c7bb4833f046368e0ac5e981fb3964ca4981b23be1dfbda4a  obs-studio.tar.gz" | shasum -a 256 -c -
+          mkdir obs-studio
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
 
           # The plugin includes libobs headers via their installed layout
           # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
@@ -244,8 +281,13 @@ jobs:
           export C_INCLUDE_PATH="$PWD/obs-studio:$PWD/obs-studio/build_ubuntu/config"
           export LIBRARY_PATH="$PWD/obs-studio/build_ubuntu/libobs"
 
+          export CCACHE_DIR="$PWD/.ccache"
+          export CCACHE_MAXSIZE=200M
+          export CC="ccache cc"
+
           meson setup build --buildtype release
           ninja -C build
+          ccache --show-stats
 
       # Assemble the FHS layout by hand so the package carries only the
       # plugin, not an entire OBS installation.
@@ -292,11 +334,18 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pkg-linux-x86_64
+          name: obs-gstreamer-linux-x86_64
           path: |
             obs-gstreamer-*-ubuntu-x86_64.tar.gz
             obs-gstreamer_*_amd64.deb
           if-no-files-found: error
+
+      - name: Save ccache 💾
+        if: success() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .ccache
+          key: ccache-linux-x86_64-${{ github.run_id }}
 
   windows-build:
     name: Windows 🪟 (x64)
@@ -375,9 +424,15 @@ jobs:
       - name: Fetch obs-studio 📥
         run: |
           # Fetch obs-studio 📥
-          git clone --depth 1 --branch $env:OBS_REF `
-            --recurse-submodules --shallow-submodules `
-            https://github.com/obsproject/obs-studio.git obs-studio
+          Invoke-WebRequest -Uri `
+            "https://github.com/obsproject/obs-studio/archive/refs/tags/$($env:OBS_REF).tar.gz" `
+            -OutFile obs-studio.tar.gz
+          $obsHash = (Get-FileHash obs-studio.tar.gz -Algorithm SHA256).Hash
+          if ($obsHash -ne 'C333E4A7D5C4A94C7BB4833F046368E0AC5E981FB3964CA4981B23BE1DFBDA4A') {
+            throw "obs-studio tarball checksum mismatch: $obsHash"
+          }
+          New-Item -ItemType Directory -Path obs-studio | Out-Null
+          tar -xzf obs-studio.tar.gz -C obs-studio --strip-components=1
 
           # The plugin includes libobs headers via their installed layout
           # (<obs/obs.h>), but in-tree they live under libobs/. Alias them.
@@ -543,14 +598,14 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pkg-windows-x64
+          name: obs-gstreamer-windows-x64
           path: obs-gstreamer-*-windows-x64.zip
           if-no-files-found: error
 
       - name: Upload Debug Symbols 🪲
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pdb-windows-x64
+          name: obs-gstreamer-pdb-windows-x64
           path: pkg-pdb/obs-gstreamer.pdb
           if-no-files-found: warn
 
@@ -567,13 +622,15 @@ jobs:
     needs: [check-event, macos-build, linux-build, windows-build]
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: pkg-*
+          pattern: obs-gstreamer-*
           merge-multiple: true
           path: release
 
@@ -582,6 +639,13 @@ jobs:
         run: |
           : Generate Checksums 🔐
           sha256sum * > SHA256SUMS.txt
+
+      - name: Attest artifacts 🔐
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            release/obs-gstreamer-*
+            release/obs-gstreamer_*
 
       - name: Create GitHub Release 🚀
         env:
