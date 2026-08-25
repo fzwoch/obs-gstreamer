@@ -2,7 +2,7 @@ name: Build obs-gstreamer Plugin
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, dev]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -11,8 +11,10 @@ env:
   # obs-studio tag the plugin is built against in CI. Bump when the plugin
   # adopts APIs from a newer OBS release.
   OBS_REF: 32.2.0
-  # GStreamer SDK version for the macOS/Windows builds.
-  GST_VERSION: 1.24.12
+  # GStreamer SDK version for the macOS/Windows builds. Note:
+  # gstreamer.freedesktop.org prunes superseded point releases, so this must
+  # stay on a version still hosted on the server.
+  GST_VERSION: 1.24.13
 
 permissions:
   contents: read
@@ -91,7 +93,7 @@ jobs:
       - name: Install GStreamer 🛍️
         run: |
           : Install GStreamer 🛍️
-          curl -L --retry 3 -o gst-devel.pkg \
+          curl --fail -L --retry 3 -o gst-devel.pkg \
             "https://gstreamer.freedesktop.org/data/pkg/osx/${GST_VERSION}/gstreamer-1.0-devel-${GST_VERSION}-universal.pkg"
           sudo installer -pkg gst-devel.pkg -target /
 

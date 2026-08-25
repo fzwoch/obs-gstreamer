@@ -21,8 +21,9 @@
 #pragma once
 
 /*
- * Look up a translatable UI string for the active OBS language. Falls back to
- * the embedded English text when the locale file cannot be consulted (for
- * example when the plugin is loaded without its data directory).
+ * Look up a translatable UI string for the active OBS language. libobs itself
+ * falls back to English for untranslated keys (OBS_MODULE_USE_DEFAULT_LOCALE
+ * merges en-US.ini under the active locale); only when no locale data can be
+ * loaded at all does this return the raw key.
  */
 const char *T(const char *key);

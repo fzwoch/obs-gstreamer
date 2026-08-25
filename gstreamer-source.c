@@ -24,6 +24,7 @@
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
 #include <gst/net/gstnet.h>
+#include <string.h>
 
 #include "plugin-i18n.h"
 
@@ -160,13 +161,18 @@ static void format_parse_error(data_t *data, const char *context, const GError *
 {
 	char missing[64] = {0};
 	char hint[192] = {0};
+	char msg[256];
 
 	find_missing_element(err != NULL ? err->message : NULL, missing, sizeof(missing));
 	suggest_element_names(missing, hint, sizeof(hint));
 
-	snprintf(data->last_error, sizeof(data->last_error), "%s %s%s", context,
-		 err != NULL ? err->message : "unknown parse error", hint);
-	blog(LOG_ERROR, "[obs-gstreamer] %s: %s", obs_source_get_name(data->source), data->last_error);
+	snprintf(msg, sizeof(msg), "%s %s%s", context, err != NULL ? err->message : "unknown parse error", hint);
+	blog(LOG_ERROR, "[obs-gstreamer] %s: %s", obs_source_get_name(data->source), msg);
+
+	// Stored for the properties dialog; guarded because the UI thread reads it.
+	g_mutex_lock(&data->mutex);
+	snprintf(data->last_error, sizeof(data->last_error), "%s", msg);
+	g_mutex_unlock(&data->mutex);
 }
 
 static void timeout_destroy(gpointer user_data)
@@ -777,7 +783,9 @@ static void create_pipeline(data_t *data)
 	}
 
 	// Pipeline launched fine; clear any previously shown error.
+	g_mutex_lock(&data->mutex);
 	data->last_error[0] = '\0';
+	g_mutex_unlock(&data->mutex);
 
 	GstAppSinkCallbacks video_cbs = {NULL, NULL, video_new_sample};
 
@@ -1045,13 +1053,19 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
-	// Runtime status line. libobs removed obs_source_set_last_error(), so we
-	// surface errors through an info text property instead. The value is
-	// stored in the settings so the properties dialog picks it up.
+	// Runtime status line. libobs has no per-source error API (only outputs
+	// and encoders have obs_*_set_last_error()), so errors are surfaced through
+	// an info text property. The status is passed as the property description;
+	// nothing is written to the saved settings.
+	char last_error[sizeof(d->last_error)];
+	g_mutex_lock(&d->mutex);
+	memcpy(last_error, d->last_error, sizeof(last_error));
+	g_mutex_unlock(&d->mutex);
+
 	const char *status = T("status.stopped");
 	enum obs_text_info_type status_type = OBS_TEXT_INFO_NORMAL;
-	if (d->last_error[0] != '\0') {
-		status = d->last_error;
+	if (last_error[0] != '\0') {
+		status = last_error;
 		status_type = OBS_TEXT_INFO_ERROR;
 	} else if (d->thread != NULL) {
 		switch (d->obs_media_state) {
@@ -1076,8 +1090,10 @@ obs_properties_t *gstreamer_source_get_properties(void *data)
 			break;
 		}
 	}
-	obs_data_set_string(d->settings, "_last_status", status);
-	obs_property_t *prop = obs_properties_add_text(props, "_last_status", NULL, OBS_TEXT_INFO);
+	// Purge the key an earlier version persisted into saved settings.
+	obs_data_erase(d->settings, "_last_status");
+
+	obs_property_t *prop = obs_properties_add_text(props, "_status_line", status, OBS_TEXT_INFO);
 	obs_property_text_set_info_type(prop, status_type);
 
 	// --- Pipeline ---

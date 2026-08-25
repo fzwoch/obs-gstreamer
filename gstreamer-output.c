@@ -58,27 +58,8 @@ void gstreamer_output_destroy(void *data)
 	g_free(data);
 }
 
-static int speaker_to_channels(enum speaker_layout speakers)
-{
-	switch (speakers) {
-	case SPEAKERS_MONO:
-		return 1;
-	case SPEAKERS_STEREO:
-		return 2;
-	case SPEAKERS_2POINT1:
-		return 3;
-	case SPEAKERS_4POINT0:
-		return 4;
-	case SPEAKERS_4POINT1:
-		return 5;
-	case SPEAKERS_5POINT1:
-		return 6;
-	case SPEAKERS_7POINT1:
-		return 8;
-	default:
-		return 0;
-	}
-}
+// Channel count for the output audio comes straight from libobs
+// (media-io/audio-io.h).
 
 static int get_aac_frequency_index(int samples_per_sec)
 {
@@ -103,8 +84,11 @@ static gchar *make_aac_codec_data_fragment(int samples_per_sec, int channels)
 		return NULL;
 
 	// 5 bits audio object type (2 == AAC-LC), 4 bits sampling frequency
-	// index, 4 bits channel configuration.
-	unsigned int asc = (2 << 11) | ((unsigned int)frequency_index << 7) | ((unsigned int)channels << 3);
+	// index, 4 bits channel configuration. Per ISO 14496-3, configurations
+	// 1..6 match OBS layouts directly, while 8-channel (7.1) is defined as
+	// channelConfiguration 7 (value 8 is reserved).
+	unsigned int config = channels == 8 ? 7 : (unsigned int)channels;
+	unsigned int asc = (2 << 11) | ((unsigned int)frequency_index << 7) | (config << 3);
 
 	return g_strdup_printf("codec_data=(buffer)%04x", asc);
 }
@@ -139,7 +123,7 @@ bool gstreamer_output_start(void *p)
 		return false;
 	}
 
-	int channels = speaker_to_channels(oai.speakers);
+	int channels = get_audio_channels(oai.speakers);
 	if (channels == 0) {
 		blog(LOG_ERROR, "[obs-gstreamer] output: unsupported speaker layout: %d", oai.speakers);
 		obs_output_set_last_error(data->output, "Unsupported speaker layout");

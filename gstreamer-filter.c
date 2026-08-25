@@ -23,6 +23,7 @@
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 #include <gst/app/app.h>
+#include <string.h>
 
 #include "plugin-i18n.h"
 
@@ -169,11 +170,19 @@ obs_properties_t *gstreamer_filter_get_properties(void *data)
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
 	// Runtime status line; see gstreamer_source_get_properties().
-	const char *status = d->last_error[0] != '\0' ? d->last_error : T("filter.ready");
+	char last_error[sizeof(d->last_error)];
+	g_mutex_lock(&d->mutex);
+	memcpy(last_error, d->last_error, sizeof(last_error));
+	g_mutex_unlock(&d->mutex);
+
+	const char *status = last_error[0] != '\0' ? last_error : T("filter.ready");
 	enum obs_text_info_type status_type =
-		d->last_error[0] != '\0' ? OBS_TEXT_INFO_ERROR : OBS_TEXT_INFO_NORMAL;
-	obs_data_set_string(d->settings, "_last_status", status);
-	obs_property_t *prop = obs_properties_add_text(props, "_last_status", NULL, OBS_TEXT_INFO);
+		last_error[0] != '\0' ? OBS_TEXT_INFO_ERROR : OBS_TEXT_INFO_NORMAL;
+
+	// Purge the key an earlier version persisted into saved settings.
+	obs_data_erase(d->settings, "_last_status");
+
+	obs_property_t *prop = obs_properties_add_text(props, "_status_line", status, OBS_TEXT_INFO);
 	obs_property_text_set_info_type(prop, status_type);
 
 	prop = obs_properties_add_text(props, "pipeline", T("pipeline.label"), OBS_TEXT_MULTILINE);
