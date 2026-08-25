@@ -437,13 +437,21 @@ jobs:
 
           $env:PKG_CONFIG_PATH = 'C:\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
 
+          # Meson parses bracketed -D list values as string literals where
+          # \a, \b etc. are escape sequences — raw Windows backslash paths
+          # get corrupted into control characters (visible as D:␇ in the
+          # log). Convert to forward slashes; cl and link accept those.
+          $srcM = $src.Replace('\', '/')
+          $cfgM = $cfg.Replace('\', '/')
+          $libobsLibM = $libobsLib.Replace('\', '/')
+
           # On any setup failure, surface the real compile command line from
           # the meson log instead of its one-line summary.
           $PSNativeCommandUseErrorActionPreference = $true
           try {
             meson setup build --buildtype release `
-              "-Dc_args=['/I$src','/I$cfg']" `
-              "-Dc_link_args=['/LIBPATH:$libobsLib']"
+              "-Dc_args=['/I$srcM','/I$cfgM']" `
+              "-Dc_link_args=['/LIBPATH:$libobsLibM']"
           } catch {
             Write-Host '=== meson-log.txt (last 150 lines) ==='
             Get-Content build/meson-logs/meson-log.txt -Tail 150 | ForEach-Object { Write-Host $_ }
