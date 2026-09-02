@@ -1,0 +1,5 @@
+[wrap-file]
+directory = gst-plugins-base-1.28.6
+source_url = https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.28.6.tar.xz
+source_filename = gst-plugins-base-1.28.6.tar.xz
+source_hash = 0ba699c7c6c66f4ba640be78cb38a24715add9683f3e3a199f5369dc5a4f04ac

@@ -1,0 +1,2 @@
+option('system-gstreamer', type : 'boolean', value : false,
+  description : 'Link against the system-installed GStreamer instead of building it from source as a meson subproject')

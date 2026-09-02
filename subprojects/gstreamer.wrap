@@ -1,0 +1,5 @@
+[wrap-file]
+directory = gstreamer-1.28.6
+source_url = https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.28.6.tar.xz
+source_filename = gstreamer-1.28.6.tar.xz
+source_hash = 62b6b9f0ad3147a6dd6420ac64a91180b14e990695bddd353b96041611d052ca
