@@ -40,6 +40,7 @@ typedef struct {
 	GMainLoop *loop;
 	GMutex mutex;
 	GCond cond;
+	GMutex pipe_mutex;
 } data_t;
 
 static void create_pipeline(data_t *data);
@@ -70,6 +71,8 @@ static gboolean pipeline_destroy(gpointer user_data)
 	gst_bus_remove_watch(bus);
 	gst_object_unref(bus);
 
+	g_mutex_lock(&data->pipe_mutex);
+
 	// set state to GST_STATE_NULL here and _only_ here, just before
 	// unreferencing data->pipe
 	gst_element_set_state(data->pipe, GST_STATE_NULL);
@@ -79,6 +82,8 @@ static gboolean pipeline_destroy(gpointer user_data)
 		gst_object_unref(data->clock);
 	data->pipe = NULL;
 	data->clock = NULL;
+
+	g_mutex_unlock(&data->pipe_mutex);
 
 	return G_SOURCE_REMOVE;
 }
@@ -383,31 +388,33 @@ enum obs_media_state gstreamer_source_get_state(void *user_data)
 int64_t gstreamer_source_get_time(void *user_data)
 {
 	data_t *data = user_data;
-	int64_t position;
+	int64_t position = 0;
 
-	if (!data->pipe)
-		return 0;
+	g_mutex_lock(&data->pipe_mutex);
 
-	if (gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position))
-		if (GST_CLOCK_TIME_IS_VALID(position))
-			return GST_TIME_AS_MSECONDS(position);
+	if (data->pipe && gst_element_query_position(data->pipe, GST_FORMAT_TIME, &position) &&
+	    !GST_CLOCK_TIME_IS_VALID(position))
+		position = 0;
 
-	return 0;
+	g_mutex_unlock(&data->pipe_mutex);
+
+	return GST_TIME_AS_MSECONDS(position);
 }
 
 int64_t gstreamer_source_get_duration(void *user_data)
 {
 	data_t *data = user_data;
-	int64_t duration;
+	int64_t duration = 0;
 
-	if (!data->pipe)
-		return 0;
+	g_mutex_lock(&data->pipe_mutex);
 
-	if (gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration))
-		if (GST_CLOCK_TIME_IS_VALID(duration))
-			return GST_TIME_AS_MSECONDS(duration);
+	if (data->pipe && gst_element_query_duration(data->pipe, GST_FORMAT_TIME, &duration) &&
+	    !GST_CLOCK_TIME_IS_VALID(duration))
+		duration = 0;
 
-	return 0;
+	g_mutex_unlock(&data->pipe_mutex);
+
+	return GST_TIME_AS_MSECONDS(duration);
 }
 
 static gboolean pipeline_pause(gpointer user_data)
@@ -685,6 +692,7 @@ void *gstreamer_source_create(obs_data_t *settings, obs_source_t *source)
 
 	g_mutex_init(&data->mutex);
 	g_cond_init(&data->cond);
+	g_mutex_init(&data->pipe_mutex);
 
 	if (obs_data_get_bool(settings, "stop_on_hide") == false)
 		start(data);
@@ -713,6 +721,7 @@ void gstreamer_source_destroy(void *user_data)
 
 	g_mutex_clear(&data->mutex);
 	g_cond_clear(&data->cond);
+	g_mutex_clear(&data->pipe_mutex);
 
 	g_free(data);
 }
