@@ -49,7 +49,7 @@ jobs:
           ls -l /tmp/obs
           meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
-          meson install --skip-submodules -C build
+          meson install --skip-subprojects -C build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
