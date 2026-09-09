@@ -1,6 +1,5 @@
 on: push
 env:
-  VERSION: 0.8.0
   MACOSX_DEPLOYMENT_TARGET: 13.0
 jobs:
   build:
@@ -48,13 +47,13 @@ jobs:
           LIBRARY_PATH: /tmp/obs
         run: |
           ls -l /tmp/obs
-          meson setup --buildtype=release -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
+          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
-          meson install -C build
+          meson install --skip-submodules -C build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Teleport-${{ env.VERSION }}-${{ matrix.name }}
+          name: OBS-GStreamer-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            build/obs-gstreamer.dll
+            obs-gstreamer.dll
