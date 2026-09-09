@@ -29,7 +29,7 @@ jobs:
           mkdir /tmp/unpack-obs
           wget -q -O- https://github.com/obsproject/obs-studio/archive/refs/tags/31.1.0.tar.gz | tar xz --strip-components 1 -C /tmp/unpack-obs
           mv /tmp/unpack-obs/libobs /tmp/obs
-          touch /tmp/obs/libobs/obsconfig.h
+          touch /tmp/obs/obsconfig.h
 
       - name: Unpack OBS libraries
         if: ${{ matrix.os == 'windows' }}
@@ -43,8 +43,11 @@ jobs:
           mv /tmp/obs/bin/64bit/*.dll /tmp/obs
 
       - name: Build
+        env:
+          C_INCLUDE_DIR: /tmp
+          LIBRARY_DIR: /tmp/obs
         run: |
-          meson setup --buildtype=release -Dc_args="-I/tmp" -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
+          meson setup --buildtype=release -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install -C build
 

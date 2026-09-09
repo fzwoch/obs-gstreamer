@@ -27,7 +27,7 @@ project('obs-gstreamer', 'c',
 
 obs_dep = dependency('libobs', required : false)
 if not obs_dep.found()
-#  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
+  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
 endif
 
 gstreamer_dependencies = []
