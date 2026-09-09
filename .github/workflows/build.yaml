@@ -57,4 +57,4 @@ jobs:
         with:
           name: Teleport-${{ env.VERSION }}-${{ matrix.name }}
           path: |
-            install.sh
+            build/obs-gstreamer.dll
