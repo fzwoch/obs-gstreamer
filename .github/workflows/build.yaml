@@ -44,8 +44,8 @@ jobs:
 
       - name: Build
         env:
-          C_INCLUDE_DIR: /tmp
-          LIBRARY_DIR: /tmp/obs
+          C_INCLUDE_PATH: /tmp
+          LIBRARY_PATH: /tmp/obs
         run: |
           meson setup --buildtype=release -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
