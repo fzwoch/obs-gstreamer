@@ -32,7 +32,7 @@ jobs:
           touch /tmp/obs/obsconfig.h
 
       - name: Unpack OBS libraries
-        if: ${{ matrix.os == 'windows' }}
+        if: ${{ matrix.os == 'mingw' }}
         run: |
           if [ "${{ matrix.arch }}" = "amd64" ]; then
             wget -q -O /tmp/obs.zip https://github.com/obsproject/obs-studio/releases/download/31.1.0/OBS-Studio-31.1.0-Windows-x64.zip
