@@ -11,18 +11,24 @@ jobs:
       matrix:
         #os: [mingw, linux, macos]
         #arch: [x86_64, arm64]
-        os: [linux]
+        os: [mingw]
         arch: [x86_64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup flex/bison
+        run: |
+            apt update
+            apt install -y flex bison
+
       - name: Unpack OBS headers
         run: |
           mkdir /tmp/simde
           wget -q -O- https://github.com/simd-everywhere/simde/releases/download/v0.8.2/simde-amalgamated-0.8.2.tar.xz | tar xJ --strip-components 1 -C /tmp/simde
-          mkdir /tmp/obs
-          wget -q -O- https://github.com/obsproject/obs-studio/archive/refs/tags/31.1.0.tar.gz | tar xz --strip-components 1 -C /tmp/obs
+          mkdir /tmp/unpack-obs
+          wget -q -O- https://github.com/obsproject/obs-studio/archive/refs/tags/31.1.0.tar.gz | tar xz --strip-components 1 -C /tmp/unpack-obs
+          mv /tmp/unpack-obs/libobs /tmp/obs
           touch /tmp/obs/libobs/obsconfig.h
 
       - name: Unpack OBS libraries
@@ -38,7 +44,7 @@ jobs:
 
       - name: Build
         run: |
-          meson setup --buildtype=release -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt
+          meson setup --buildtype=release -Dc_args="-I/tmp" -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install -C build
 
