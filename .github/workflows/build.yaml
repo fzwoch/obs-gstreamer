@@ -39,7 +39,7 @@ jobs:
           else
             wget -q -O /tmp/obs.zip https://github.com/obsproject/obs-studio/releases/download/31.1.0/OBS-Studio-31.1.0-Windows-arm64.zip
           fi
-          unzip -o /tmp/obs.zip "bin/64bit/obs-frontend-api.dll" "bin/64bit/obs.dll" -d /tmp/unpack-obs
+          unzip -o /tmp/obs.zip "bin/64bit/obs.dll" -d /tmp/unpack-obs
           mv /tmp/unpack-obs/bin/64bit/*.dll /tmp/obs
 
       - name: Build
@@ -47,6 +47,7 @@ jobs:
           C_INCLUDE_PATH: /tmp
           LIBRARY_PATH: /tmp/obs
         run: |
+          ls -l /tmp/obs
           meson setup --buildtype=release -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install -C build
