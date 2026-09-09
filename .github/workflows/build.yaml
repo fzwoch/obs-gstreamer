@@ -46,7 +46,6 @@ jobs:
           C_INCLUDE_PATH: /tmp
           LIBRARY_PATH: /tmp/obs
         run: |
-          ls -l /tmp/obs
           meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install --skip-subprojects -C build
@@ -54,6 +53,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: OBS-GStreamer-${{ matrix.os }}-${{ matrix.arch }}
+          name: obs-gstreamer-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             obs-gstreamer.dll
