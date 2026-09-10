@@ -10,8 +10,10 @@ jobs:
       matrix:
         #os: [mingw, linux, macos]
         #arch: [x86_64, arm64]
-        os: [mingw]
-        arch: [x86_64]
+        include:
+          #- { os: mingw, arch: x86_64, ldlags: "" }
+          #- { os: mingw, arch: arm64, ldflags: "" }
+          - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup"}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -46,7 +48,9 @@ jobs:
           C_INCLUDE_PATH: /tmp
           LIBRARY_PATH: /tmp/obs
         run: |
-          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
+          echo "subsystem = 'macos'" >> /meson/macos-x86_64.txt
+          echo "subsystem = 'macos'" >> /meson/macos-arm64.txt
+          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dlink-args=${{ matrix.ldflags }} -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install --skip-subprojects -C build
 
