@@ -1,4 +1,6 @@
 option('system-gstreamer', type : 'boolean', value : false,
   description : 'Link against the system-installed GStreamer instead of building it from source as a meson subproject')
-option('link-args', type : 'string', value : '', description: '')
-option('require-libobs', type : 'boolean', value : true, description: '')
+option('link-args', type : 'string', value : '',
+  description : 'Additional linker arguments passed to the obs-gstreamer shared library')
+option('require-libobs', type : 'boolean', value : true,
+  description : 'Fail configuration if libobs is not found instead of continuing without it')
