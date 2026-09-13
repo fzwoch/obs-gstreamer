@@ -11,9 +11,10 @@ jobs:
         #os: [mingw, linux, macos]
         #arch: [x86_64, arm64]
         include:
-          #- { os: mingw, arch: x86_64, ldlags: "" }
-          #- { os: mingw, arch: arm64, ldflags: "" }
-          - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup"}
+          #- { os: mingw, arch: x86_64, ldlags: "", require-libobs: "true" }
+          #- { os: mingw, arch: arm64, ldflags: "", require-libobs: "true" }
+          #- { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
+          - { os: linux, arch: x86_64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -50,7 +51,7 @@ jobs:
         run: |
           echo "subsystem = 'macos'" >> /meson/macos-x86_64.txt
           echo "subsystem = 'macos'" >> /meson/macos-arm64.txt
-          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dlink-args=${{ matrix.ldflags }} -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
+          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dlink-args=${{ matrix.ldflags }} -Drequire-libobs=${{ matrix.require-libobs }}  -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install --skip-subprojects -C build
 
