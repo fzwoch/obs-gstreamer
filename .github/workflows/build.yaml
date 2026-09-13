@@ -8,12 +8,10 @@ jobs:
       image: fzwoch/klumpatsch
     strategy:
       matrix:
-        #os: [mingw, linux, macos]
-        #arch: [x86_64, arm64]
         include:
-          #- { os: mingw, arch: x86_64, ldlags: "", require-libobs: "true" }
+          - { os: mingw, arch: x86_64, ldlags: "", require-libobs: "true" }
           #- { os: mingw, arch: arm64, ldflags: "", require-libobs: "true" }
-          #- { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
+          - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
           #- { os: macos, arch: arm64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
           - { os: linux, arch: x86_64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
           #- { os: linux, arch: arm64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
@@ -63,3 +61,5 @@ jobs:
           name: obs-gstreamer-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             obs-gstreamer.dll
+            obs-gstreamer.dylib
+            obs-gstreamer.so
