@@ -19,7 +19,7 @@
 #
 
 project('obs-gstreamer', 'c',
-  meson_version : '>=0.60.0',
+  meson_version : '>=0.63.0',
   default_options : [
     'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
     'libdir=',
@@ -99,7 +99,7 @@ else
   # Note that allow_fallback ensures none of the dependencies below resolve
   # against the system installation.
   subproject('glib', default_options : [
-    'tests=disabled',
+    'tests=false',
   ])
   subproject('gstreamer', default_options : gstreamer_core_options)
   subproject('gst-plugins-base', default_options : gstreamer_base_options)
