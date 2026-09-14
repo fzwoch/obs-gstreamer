@@ -52,9 +52,12 @@ jobs:
           echo "subsystem = 'macos'" >> /meson/macos-arm64.txt
           # Without an explicit windres, meson falls back to the build
           # machine's llvm-windres, which produces x64 resources that fail to
-          # link into the arm64 build.
+          # link into the arm64 build. Derive the tool prefix from the strip
+          # entry so the arch spelling matches the toolchain (aarch64 vs
+          # arm64).
           if [ "${{ matrix.os }}" = "mingw" ]; then
-            sed -i "/^strip = /a windres = '${{ matrix.arch }}-w64-mingw32-windres'" /meson/mingw-${{ matrix.arch }}.txt
+            triplet=$(sed -n "s/^strip = '\(.*\)-strip'/\1/p" /meson/mingw-${{ matrix.arch }}.txt)
+            sed -i "/^strip = /a windres = '${triplet}-windres'" /meson/mingw-${{ matrix.arch }}.txt
           fi
           # Do not use LIBRARY_PATH to locate obs.dll: GCC/Clang ignore it when
           # cross compiling (host arch != target arch), which breaks the arm64
