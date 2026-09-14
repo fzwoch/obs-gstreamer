@@ -72,7 +72,7 @@ jobs:
           mkdir -p obs-gstreamer.plugin/Contents/MacOS
           mv obs-gstreamer.dylib obs-gstreamer.plugin/Contents/MacOS/obs-gstreamer
 
-          cat > obs-gstremer.plugin/Contents/Info.plist <<'EOF'
+          cat > obs-gstreamer.plugin/Contents/Info.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
