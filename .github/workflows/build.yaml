@@ -9,10 +9,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: mingw, arch: x86_64, ldlags: "", require-libobs: "true" }
-          - { os: mingw, arch: arm64, ldflags: "", require-libobs: "true" }
-          - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
-          - { os: macos, arch: arm64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
+          - { os: mingw, arch: x86_64, require-libobs: "true" }
+          - { os: mingw, arch: arm64, require-libobs: "true" }
+          - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup,-rpath,/usr/local/lib", require-libobs: "false" }
+          - { os: macos, arch: arm64, ldflags: "-Wl,-undefined,dynamic_lookup,-rpath,/opt/homebrew/lib", require-libobs: "false" }
           - { os: linux, arch: x86_64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
           - { os: linux, arch: arm64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
     steps:
@@ -66,11 +66,28 @@ jobs:
           meson compile -C build
           meson install --skip-subprojects -C build
 
+      - name: Package macOS
+        if: ${{ matrix.os == 'macos' }}
+        run: |
+          mkdir -p obs-gstreamer.plugin/Contents/MacOS
+          mv obs-gstreamer.dylib obs-gstreamer.plugin/Contents/MacOS/obs-gstreamer
+
+          cat > obs-gstremer.plugin/Contents/Info.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>CFBundleExecutable</key>
+          	<string>obs-gstreamer</string>
+          </dict>
+          </plist>
+          EOF
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: obs-gstreamer-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             obs-gstreamer.dll
-            obs-gstreamer.dylib
+            obs-gstreamer.plugin
             obs-gstreamer.so
