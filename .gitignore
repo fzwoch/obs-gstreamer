@@ -23,7 +23,6 @@ preview/
 /subprojects/orc-0.*/
 /subprojects/*.wrap.*
 /subprojects/gvdb.wrap
-/subprojects/libffi.wrap
 /subprojects/orc.wrap
 /subprojects/pcre2.wrap
 /subprojects/proxy-libintl.wrap

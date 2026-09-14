@@ -1,0 +1,9 @@
+[wrap-git]
+directory=libffi
+url=https://gitlab.freedesktop.org/gstreamer/meson-ports/libffi.git
+revision=meson
+depth=1
+diff_files = libffi/0001-aarch64-use-portable-ffs-replacement-on-mingw-w64.patch
+
+[provide]
+libffi = ffi_dep

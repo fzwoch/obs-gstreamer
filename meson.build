@@ -98,6 +98,13 @@ else
   #
   # Note that allow_fallback ensures none of the dependencies below resolve
   # against the system installation.
+  #
+  # Build libffi ourselves before glib does. Without this, glib resolves
+  # libffi through the wrap file shipped inside the glib tarball, which
+  # ignores the top-level subprojects/libffi.wrap (and thus its patch). The
+  # patch fixes compilation with clang targeting aarch64-windows, where
+  # mingw-w64 does not declare ffs().
+  subproject('libffi')
   subproject('glib', default_options : [
     'tests=false',
   ])

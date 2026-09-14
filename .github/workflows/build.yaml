@@ -47,11 +47,19 @@ jobs:
       - name: Build
         env:
           C_INCLUDE_PATH: /tmp
-          LIBRARY_PATH: /tmp/obs
         run: |
           echo "subsystem = 'macos'" >> /meson/macos-x86_64.txt
           echo "subsystem = 'macos'" >> /meson/macos-arm64.txt
-          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dlink-args=${{ matrix.ldflags }} -Drequire-libobs=${{ matrix.require-libobs }}  -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
+          # Without an explicit windres, meson falls back to the build
+          # machine's llvm-windres, which produces x64 resources that fail to
+          # link into the arm64 build.
+          if [ "${{ matrix.os }}" = "mingw" ]; then
+            sed -i "/^strip = /a windres = '${{ matrix.arch }}-w64-mingw32-windres'" /meson/mingw-${{ matrix.arch }}.txt
+          fi
+          # Do not use LIBRARY_PATH to locate obs.dll: GCC/Clang ignore it when
+          # cross compiling (host arch != target arch), which breaks the arm64
+          # mingw build. Pass the search path explicitly instead.
+          meson setup --buildtype=release -Dprefix=$PWD -Dbindir=. -Dlink-args=${{ matrix.ldflags }} -Drequire-libobs=${{ matrix.require-libobs }} -Dc_link_args="-L/tmp/obs" -Dstrip=true -Db_lto=true --cross-file=/meson/${{ matrix.os }}-${{ matrix.arch }}.txt build
           meson compile -C build
           meson install --skip-subprojects -C build
 
