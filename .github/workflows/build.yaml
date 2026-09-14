@@ -10,11 +10,11 @@ jobs:
       matrix:
         include:
           - { os: mingw, arch: x86_64, ldlags: "", require-libobs: "true" }
-          #- { os: mingw, arch: arm64, ldflags: "", require-libobs: "true" }
+          - { os: mingw, arch: arm64, ldflags: "", require-libobs: "true" }
           - { os: macos, arch: x86_64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
-          #- { os: macos, arch: arm64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
+          - { os: macos, arch: arm64, ldflags: "-Wl,-undefined,dynamic_lookup", require-libobs: "false" }
           - { os: linux, arch: x86_64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
-          #- { os: linux, arch: arm64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
+          - { os: linux, arch: arm64, ldflags: "-Wl,--unresolved-symbols=ignore-all", require-libobs: "false" }
     steps:
       - name: Checkout
         uses: actions/checkout@v7
