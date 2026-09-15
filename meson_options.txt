@@ -1,4 +1,4 @@
-option('system-gstreamer', type : 'boolean', value : false,
+option('system-gstreamer', type : 'boolean', value : true,
   description : 'Link against the system-installed GStreamer instead of building it from source as a meson subproject')
 option('link-args', type : 'string', value : '',
   description : 'Additional linker arguments passed to the obs-gstreamer shared library')
