@@ -1,0 +1,15 @@
+--- a/meson.build
++++ b/meson.build
+@@ -543,9 +543,9 @@
+ 
+ python3 = import('python').find_installation()
+ subdir('gst-libs')
+-subdir('gst')
+-subdir('ext')
+-subdir('sys')
++# obs-gstreamer only links against the gst-libs libraries. The plugin
++# binaries are never loaded at runtime, so they are not built.
++plugins = []
+ subdir('tools')
+ subdir('tests')
+ 
