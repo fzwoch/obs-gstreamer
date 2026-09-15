@@ -20,6 +20,7 @@
 
 project('obs-gstreamer', 'c',
   meson_version : '>=0.63.0',
+  version : '0.4.2',
   default_options : [
     'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
     'libdir=',
