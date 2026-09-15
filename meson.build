@@ -133,6 +133,6 @@ shared_library('obs-gstreamer',
   ),
   name_prefix : '',
   dependencies : [obs_dep] + gstreamer_dependencies,
-  link_args: get_option('link-args'),
+  link_args: get_option('link-args').split(),
   install : true,
 )
