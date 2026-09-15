@@ -66,6 +66,18 @@ jobs:
           meson compile -C build
           meson install --skip-subprojects -C build
 
+      - name: Package Linux
+        if: ${{ matrix.os == 'linux' }}
+        run: |
+          mkdir -p obs-gstreamer/bin/64bit
+          mv obs-gstreamer.so obs-gstreamer/bin/64bit
+
+      - name: Package Windows
+        if: ${{ matrix.os == 'mingw' }}
+        run: |
+          mkdir -p obs-gstreamer/bin/64bit
+          mv obs-gstreamer.dll obs-gstreamer/bin/64bit
+
       - name: Package macOS
         if: ${{ matrix.os == 'macos' }}
         run: |
@@ -88,6 +100,5 @@ jobs:
         with:
           name: obs-gstreamer-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            obs-gstreamer.dll
+            obs-gstreamer
             obs-gstreamer.plugin
-            obs-gstreamer.so
