@@ -19,20 +19,105 @@
 #
 
 project('obs-gstreamer', 'c',
+  meson_version : '>=0.63.0',
+  version : '0.4.2',
   default_options : [
     'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
-    'libdir='
+    'libdir=',
   ],
 )
 
 obs_dep = dependency('libobs', required : false)
 if not obs_dep.found()
-  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
+  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h', required : get_option('require-libobs'))
 endif
 
-name_suffix = []
-if host_machine.system() == 'darwin'
-  name_suffix = 'so'
+gstreamer_dependencies = []
+if get_option('system-gstreamer')
+  gstreamer_dependencies += [
+    dependency('gstreamer-1.0', version : '>=1.16.0'),
+    dependency('gstreamer-video-1.0'),
+    dependency('gstreamer-audio-1.0'),
+    dependency('gstreamer-app-1.0'),
+    dependency('gstreamer-net-1.0'),
+  ]
+else
+  # Build GStreamer from source tarballs as meson subprojects
+  # (subprojects/*.wrap) instead of using the system installation. Only the
+  # minimum needed to build this plugin is enabled: gstreamer core and
+  # gst-plugins-base (which provide gstreamer-1.0, gstreamer-net-1.0,
+  # gstreamer-video-1.0, gstreamer-audio-1.0 and gstreamer-app-1.0).
+  gstreamer_core_options = [
+    'tests=disabled',
+    'examples=disabled',
+    'benchmarks=disabled',
+    'tools=disabled',
+    'introspection=disabled',
+    'nls=disabled',
+    'doc=disabled',
+    'extra-checks=disabled',
+    # Not used by this plugin, and would require a Rust toolchain
+    # matching the target when cross compiling.
+    'ptp-helper=disabled',
+    'bash-completion=disabled',
+    'libunwind=disabled',
+    'libdw=disabled',
+  ]
+  gstreamer_base_options = [
+    'tests=disabled',
+    'examples=disabled',
+    'tools=disabled',
+    'introspection=disabled',
+    'nls=disabled',
+    'doc=disabled',
+    'qt5=disabled',
+    # Disable everything that requires external libraries. The
+    # dependency-free plugins (appsrc/appsink, converters, scalers, mixers,
+    # ...) remain enabled.
+    'alsa=disabled',
+    'cdparanoia=disabled',
+    'drm=disabled',
+    'gl=disabled',
+    'iso-codes=disabled',
+    'libvisual=disabled',
+    'ogg=disabled',
+    'opus=disabled',
+    'pango=disabled',
+    'theora=disabled',
+    'tremor=disabled',
+    'vorbis=disabled',
+    'x11=disabled',
+    'xshm=disabled',
+    'xvideo=disabled',
+    'xi=disabled',
+  ]
+  # Vendor glib first: it is built from source (subprojects/glib.wrap) and
+  # registers meson.override_dependency() for glib-2.0, gobject-2.0, gio-2.0,
+  # ... so that GStreamer (and this plugin) never link against the system
+  # glib. Required for cross compilation where no system libraries are
+  # available.
+  #
+  # Note that allow_fallback ensures none of the dependencies below resolve
+  # against the system installation.
+  #
+  # Build libffi ourselves before glib does. Without this, glib resolves
+  # libffi through the wrap file shipped inside the glib tarball, which
+  # ignores the top-level subprojects/libffi.wrap (and thus its patch). The
+  # patch fixes compilation with clang targeting aarch64-windows, where
+  # mingw-w64 does not declare ffs().
+  subproject('libffi')
+  subproject('glib', default_options : [
+    'tests=false',
+  ])
+  subproject('gstreamer', default_options : gstreamer_core_options)
+  subproject('gst-plugins-base', default_options : gstreamer_base_options)
+  gstreamer_dependencies += [
+    dependency('gstreamer-1.0', version : '>=1.16.0', allow_fallback : true),
+    dependency('gstreamer-video-1.0', allow_fallback : true),
+    dependency('gstreamer-audio-1.0', allow_fallback : true),
+    dependency('gstreamer-app-1.0', allow_fallback : true),
+    dependency('gstreamer-net-1.0', allow_fallback : true),
+  ]
 endif
 
 shared_library('obs-gstreamer',
@@ -47,14 +132,7 @@ shared_library('obs-gstreamer',
     output : 'version.c',
   ),
   name_prefix : '',
-  name_suffix : name_suffix,
-  dependencies : [
-    obs_dep,
-    dependency('gstreamer-1.0', version : '>=1.16.0'),
-    dependency('gstreamer-video-1.0'),
-    dependency('gstreamer-audio-1.0'),
-    dependency('gstreamer-app-1.0'),
-    dependency('gstreamer-net-1.0'),
-  ],
+  dependencies : [obs_dep] + gstreamer_dependencies,
+  link_args: get_option('link-args').split(),
   install : true,
 )
