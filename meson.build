@@ -83,7 +83,7 @@ else
   ]
   subproject('libffi')
   subproject('glib', default_options : [
-    'tests=disabled',
+    'tests=false',
   ])
   subproject('gstreamer', default_options : gstreamer_core_options)
   subproject('gst-plugins-base', default_options : gstreamer_base_options)
