@@ -42,11 +42,6 @@ if get_option('system-gstreamer')
     dependency('gstreamer-net-1.0'),
   ]
 else
-  # Build GStreamer from source tarballs as meson subprojects
-  # (subprojects/*.wrap) instead of using the system installation. Only the
-  # minimum needed to build this plugin is enabled: gstreamer core and
-  # gst-plugins-base (which provide gstreamer-1.0, gstreamer-net-1.0,
-  # gstreamer-video-1.0, gstreamer-audio-1.0 and gstreamer-app-1.0).
   gstreamer_core_options = [
     'tests=disabled',
     'examples=disabled',
@@ -56,8 +51,6 @@ else
     'nls=disabled',
     'doc=disabled',
     'extra-checks=disabled',
-    # Not used by this plugin, and would require a Rust toolchain
-    # matching the target when cross compiling.
     'ptp-helper=disabled',
     'bash-completion=disabled',
     'libunwind=disabled',
@@ -71,9 +64,6 @@ else
     'nls=disabled',
     'doc=disabled',
     'qt5=disabled',
-    # Disable everything that requires external libraries. The
-    # dependency-free plugins (appsrc/appsink, converters, scalers, mixers,
-    # ...) remain enabled.
     'alsa=disabled',
     'cdparanoia=disabled',
     'drm=disabled',
@@ -91,23 +81,9 @@ else
     'xvideo=disabled',
     'xi=disabled',
   ]
-  # Vendor glib first: it is built from source (subprojects/glib.wrap) and
-  # registers meson.override_dependency() for glib-2.0, gobject-2.0, gio-2.0,
-  # ... so that GStreamer (and this plugin) never link against the system
-  # glib. Required for cross compilation where no system libraries are
-  # available.
-  #
-  # Note that allow_fallback ensures none of the dependencies below resolve
-  # against the system installation.
-  #
-  # Build libffi ourselves before glib does. Without this, glib resolves
-  # libffi through the wrap file shipped inside the glib tarball, which
-  # ignores the top-level subprojects/libffi.wrap (and thus its patch). The
-  # patch fixes compilation with clang targeting aarch64-windows, where
-  # mingw-w64 does not declare ffs().
   subproject('libffi')
   subproject('glib', default_options : [
-    'tests=false',
+    'tests=disabled',
   ])
   subproject('gstreamer', default_options : gstreamer_core_options)
   subproject('gst-plugins-base', default_options : gstreamer_base_options)
