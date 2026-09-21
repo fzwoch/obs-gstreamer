@@ -1,0 +1,35 @@
+From 1395a6290fbc1d9709d53d0de1604b4d63fd8d10 Mon Sep 17 00:00:00 2001
+From: Florian Zwoch <fzwoch@gmail.com>
+Date: Mon, 14 Sep 2026 14:47:27 +0200
+Subject: [PATCH] aarch64: use portable ffs replacement on mingw-w64
+
+mingw-w64 does not declare ffs() in its headers. dlmalloc.c (used for
+closure allocation on Windows) then fails to compile with clang 16+,
+which makes implicit function declarations an error.
+
+Use the portable bit-twiddling implementation instead, the same way
+X86_WIN64 already does.
+---
+ src/aarch64/ffitarget.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/aarch64/ffitarget.h b/src/aarch64/ffitarget.h
+index 32c4f08..df8db3f 100644
+--- a/src/aarch64/ffitarget.h
++++ b/src/aarch64/ffitarget.h
+@@ -52,6 +52,12 @@ typedef enum ffi_abi
+ 
+ /* ---- Definitions for closures ----------------------------------------- */
+ 
++/* mingw-w64 does not declare ffs() in its headers, so dlmalloc.c must use
++   the portable bit-twiddling implementation instead (same as X86_WIN64). */
++#if defined(_WIN32) && !defined(USE_BUILTIN_FFS)
++#define USE_BUILTIN_FFS 0
++#endif
++
+ #define FFI_CLOSURES 1
+ #define FFI_NATIVE_RAW_API 0
+ 
+-- 
+2.53.0
+

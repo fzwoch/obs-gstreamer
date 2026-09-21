@@ -1,0 +1,14 @@
+# Pinned to the exact commit that glib's own (floating-branch)
+# subprojects/libffi.wrap resolves to: the gstreamer meson-ports libffi
+# "meson" branch at tag meson-3.2.9999.5. The glib-internal wrap is never
+# used because subproject('libffi') is activated first at the top level,
+# so this revision must be kept in sync with what glib builds against.
+[wrap-git]
+directory=libffi
+url=https://gitlab.freedesktop.org/gstreamer/meson-ports/libffi.git
+revision=83d0cfd00d7d37af4b4349511d29f1f0512621b3
+depth=1
+diff_files = libffi/0001-aarch64-use-portable-ffs-replacement-on-mingw-w64.patch
+
+[provide]
+libffi = ffi_dep

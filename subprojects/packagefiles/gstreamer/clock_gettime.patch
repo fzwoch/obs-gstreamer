@@ -1,0 +1,43 @@
+--- a/libs/gst/check/libcheck/meson.build
++++ b/libs/gst/check/libcheck/meson.build
+@@ -19,7 +19,10 @@
+   libcheck_files += ['libcompat/gettimeofday.c']
+ endif
+ 
+-if not cdata.has('HAVE_CLOCK_GETTIME')
++# On Windows/winpthread clock_gettime is provided by libpthread, and a
++# standalone probe cannot link against it; building the shim here would
++# instead redefine the symbol. Skip it on Windows.
++if host_system != 'windows' and not cdata.has('HAVE_CLOCK_GETTIME')
+   libcheck_files += ['libcompat/clock_gettime.c']
+ endif
+ 
+--- a/libs/gst/check/meson.build
++++ b/libs/gst/check/meson.build
+@@ -46,6 +46,17 @@
+   install_dir : join_paths(get_option('includedir'), 'gstreamer-1.0/gst/check'),
+   configuration : check_cdata)
+ 
++# On Windows, libcheck uses clock_gettime (emitted as clock_gettime64)
++# for test timeouts. rt_lib is empty there and the symbol comes from
++# winpthread's libpthread, so link it explicitly.
++# cc.find_library returns an ExternalLibrary (not a Dependency), which
++# does not support the bool() operator; winpthread always provides it
++# here, so append it directly.
++gst_check_deps = [gst_dep]
++if host_system == 'windows'
++  gst_check_deps += [cc.find_library('pthread', required : false)]
++endif
++
+ gst_check = library('gstcheck-@0@'.format(api_version),
+   gst_check_sources,
+   c_args : gst_c_args + ['-UG_DISABLE_ASSERT', '-DBUILDING_GST_CHECK', '-DG_LOG_DOMAIN="GStreamer-Check"'],
+@@ -55,7 +66,7 @@
+   install : true,
+   include_directories : [configinc, libsinc],
+   link_with : [libcheck],
+-  dependencies : [gst_dep],
++  dependencies : gst_check_deps,
+ )
+ 
+ library_def = {'lib': gst_check}

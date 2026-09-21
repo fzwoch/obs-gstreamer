@@ -19,20 +19,81 @@
 #
 
 project('obs-gstreamer', 'c',
+  meson_version : '>=0.63.0',
+  version : '0.4.2',
   default_options : [
     'prefix=~/.config/obs-studio/plugins/obs-gstreamer/bin/64bit',
-    'libdir='
+    'libdir=',
   ],
 )
 
 obs_dep = dependency('libobs', required : false)
 if not obs_dep.found()
-  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h')
+  obs_dep = meson.get_compiler('c').find_library('obs', has_headers : 'obs/obs.h', required : get_option('require-libobs'))
 endif
 
-name_suffix = []
-if host_machine.system() == 'darwin'
-  name_suffix = 'so'
+gstreamer_dependencies = []
+if get_option('system-gstreamer')
+  gstreamer_dependencies += [
+    dependency('gstreamer-1.0', version : '>=1.16.0'),
+    dependency('gstreamer-video-1.0'),
+    dependency('gstreamer-audio-1.0'),
+    dependency('gstreamer-app-1.0'),
+    dependency('gstreamer-net-1.0'),
+  ]
+else
+  gstreamer_core_options = [
+    'tests=disabled',
+    'examples=disabled',
+    'benchmarks=disabled',
+    'tools=disabled',
+    'introspection=disabled',
+    'nls=disabled',
+    'doc=disabled',
+    'extra-checks=disabled',
+    'ptp-helper=disabled',
+    'bash-completion=disabled',
+    'libunwind=disabled',
+    'libdw=disabled',
+  ]
+  gstreamer_base_options = [
+    'tests=disabled',
+    'examples=disabled',
+    'tools=disabled',
+    'introspection=disabled',
+    'nls=disabled',
+    'doc=disabled',
+    'qt5=disabled',
+    'alsa=disabled',
+    'cdparanoia=disabled',
+    'drm=disabled',
+    'gl=disabled',
+    'iso-codes=disabled',
+    'libvisual=disabled',
+    'ogg=disabled',
+    'opus=disabled',
+    'pango=disabled',
+    'theora=disabled',
+    'tremor=disabled',
+    'vorbis=disabled',
+    'x11=disabled',
+    'xshm=disabled',
+    'xvideo=disabled',
+    'xi=disabled',
+  ]
+  subproject('libffi')
+  subproject('glib', default_options : [
+    'tests=false',
+  ])
+  subproject('gstreamer', default_options : gstreamer_core_options)
+  subproject('gst-plugins-base', default_options : gstreamer_base_options)
+  gstreamer_dependencies += [
+    dependency('gstreamer-1.0', version : '>=1.16.0', allow_fallback : true),
+    dependency('gstreamer-video-1.0', allow_fallback : true),
+    dependency('gstreamer-audio-1.0', allow_fallback : true),
+    dependency('gstreamer-app-1.0', allow_fallback : true),
+    dependency('gstreamer-net-1.0', allow_fallback : true),
+  ]
 endif
 
 shared_library('obs-gstreamer',
@@ -47,14 +108,7 @@ shared_library('obs-gstreamer',
     output : 'version.c',
   ),
   name_prefix : '',
-  name_suffix : name_suffix,
-  dependencies : [
-    obs_dep,
-    dependency('gstreamer-1.0', version : '>=1.16.0'),
-    dependency('gstreamer-video-1.0'),
-    dependency('gstreamer-audio-1.0'),
-    dependency('gstreamer-app-1.0'),
-    dependency('gstreamer-net-1.0'),
-  ],
+  dependencies : [obs_dep] + gstreamer_dependencies,
+  link_args: get_option('link-args').split(),
   install : true,
 )
