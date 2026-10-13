@@ -55,14 +55,14 @@ jobs:
       - name: Package Linux
         if: ${{ matrix.os == 'linux' }}
         run: |
-          mkdir -p obs-gstreamer/bin/64bit
-          mv obs-gstreamer.so obs-gstreamer/bin/64bit
+          mkdir -p obs-gstreamer
+          mv obs-gstreamer.so obs-gstreamer
 
       - name: Package Windows
         if: ${{ matrix.os == 'mingw' }}
         run: |
-          mkdir -p obs-gstreamer/bin/64bit
-          mv obs-gstreamer.dll obs-gstreamer/bin/64bit
+          mkdir -p obs-gstreamer
+          mv obs-gstreamer.dll obs-gstreamer
 
       - name: Package macOS
         if: ${{ matrix.os == 'macos' }}
